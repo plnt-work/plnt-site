@@ -105,19 +105,27 @@ export default function MainPane({
 }
 
 function BriefingTab({ workflow, backend }: { workflow: Workflow; backend: WorkflowBackend }) {
+  const rows: { k: string; v: string; mono?: boolean }[] = [
+    { k: 'Category', v: CATEGORY_LABEL[workflow.category] },
+    { k: 'Version', v: workflow.version, mono: true },
+    { k: 'Steps', v: `${workflow.steps.length} · ${workflow.steps.map((s) => s.id).join(' → ')}`, mono: true },
+    { k: 'Runtime', v: workflow.runtime.image.split('/').pop() || workflow.runtime.image, mono: true },
+    { k: 'Registry', v: `microagents/${workflow.name}@${workflow.version}`, mono: true },
+    { k: 'Backend', v: `${backend.label} · ${backend.cluster}`, mono: true },
+    { k: 'Upstream', v: backend.upstream, mono: true },
+    { k: 'Endpoint', v: workflow.endpoint, mono: true },
+  ];
   return (
     <div class="pg-prose">
       <p>{workflow.briefing}</p>
-      <dl class="pg-brief-list">
-        <div><dt>Category</dt><dd>{CATEGORY_LABEL[workflow.category]}</dd></div>
-        <div><dt>Version</dt><dd>{workflow.version}</dd></div>
-        <div><dt>Steps</dt><dd>{workflow.steps.length}</dd></div>
-        <div><dt>Backend</dt><dd>{backend.label} <span class="pg-dim">({backend.cluster})</span></dd></div>
-        <div><dt>GPU</dt><dd>{workflow.requirements.gpuCount}× {workflow.requirements.gpuClass.replace('nvidia.com/', '')}</dd></div>
-        <div><dt>Memory</dt><dd>{workflow.requirements.memoryGiB} GiB</dd></div>
-        <div><dt>Runtime image</dt><dd class="pg-mono">{workflow.runtime.image}</dd></div>
-        <div><dt>Endpoint</dt><dd class="pg-mono">{workflow.endpoint}</dd></div>
-      </dl>
+      <div class="pg-brief-table">
+        {rows.map((r) => (
+          <div class="pg-brief-row">
+            <div class="pg-brief-k">{r.k}</div>
+            <div class={`pg-brief-v ${r.mono ? 'pg-mono' : ''}`}>{r.v}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
