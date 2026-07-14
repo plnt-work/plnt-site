@@ -1,0 +1,153 @@
+---
+export interface StackNode {
+  key: string;
+  tag: string;
+  title: string;
+  subtitle?: string;
+  meta?: string;
+  highlight?: boolean;
+  arrowLabel?: string;
+}
+
+export interface Props {
+  nodes: StackNode[];
+  caption?: string;
+}
+
+const { nodes, caption } = Astro.props;
+---
+
+<div class="stackflow">
+  {caption && <div class="stackflow-cap">{caption}</div>}
+  <div class="stackflow-list">
+    {nodes.map((n, i) => (
+      <>
+        <div class={`stackflow-node ${n.highlight ? 'highlight' : ''}`}>
+          <div class="stackflow-node-tag">{n.tag}</div>
+          <div class="stackflow-node-body">
+            <div class="stackflow-node-title">{n.title}</div>
+            {n.subtitle && <div class="stackflow-node-sub">{n.subtitle}</div>}
+          </div>
+          {n.meta && <div class="stackflow-node-meta">{n.meta}</div>}
+        </div>
+        {i < nodes.length - 1 && (
+          <div class="stackflow-conn">
+            <svg viewBox="0 0 24 40" fill="none" aria-hidden="true">
+              <path d="M12 0 L12 30" stroke="currentColor" stroke-width="1.5" />
+              <path d="M6 28 L12 36 L18 28" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+            {n.arrowLabel && <span class="stackflow-conn-label">{n.arrowLabel}</span>}
+          </div>
+        )}
+      </>
+    ))}
+  </div>
+</div>
+
+<style>
+  .stackflow {
+    width: 100%;
+    max-width: 720px;
+    margin: 0 auto;
+  }
+  .stackflow-cap {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--ink-5);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    text-align: center;
+    margin-bottom: 1.25rem;
+  }
+  .stackflow-list {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .stackflow-node {
+    display: grid;
+    grid-template-columns: 84px 1fr auto;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 1.1rem 1.35rem;
+    background: #ffffff;
+    border: 1px solid var(--rule);
+    border-radius: 12px;
+    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .stackflow-node:hover {
+    border-color: var(--ink-6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+  }
+  .stackflow-node.highlight {
+    border-color: var(--acc);
+    background: var(--acc-soft);
+    box-shadow: 0 0 0 4px var(--acc-ring);
+  }
+  .stackflow-node.highlight:hover {
+    transform: translateY(-1px);
+    border-color: var(--acc);
+  }
+
+  .stackflow-node-tag {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-5);
+    font-weight: 500;
+  }
+  .stackflow-node.highlight .stackflow-node-tag { color: var(--acc); }
+
+  .stackflow-node-body { min-width: 0; }
+  .stackflow-node-title {
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin-bottom: 0.15rem;
+    font-family: var(--font-mono);
+  }
+  .stackflow-node-sub {
+    color: var(--ink-4);
+    font-size: 0.82rem;
+    line-height: 1.45;
+  }
+
+  .stackflow-node-meta {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--ink-5);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .stackflow-conn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--ink-6);
+    padding: 0.35rem 0;
+    gap: 0.1rem;
+  }
+  .stackflow-conn svg {
+    width: 24px;
+    height: 34px;
+  }
+  .stackflow-conn-label {
+    font-family: var(--font-mono);
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: var(--ink-5);
+    margin-top: -0.25rem;
+  }
+
+  @media (max-width: 640px) {
+    .stackflow-node { grid-template-columns: 1fr; gap: 0.35rem; padding: 1rem 1.15rem; }
+    .stackflow-node-meta { text-align: left; }
+  }
+</style>

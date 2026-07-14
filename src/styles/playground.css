@@ -555,6 +555,69 @@
 .pg-orch-metric .pg-label { margin-bottom: 0.4rem; }
 .pg-orch-metric .pg-mono { color: var(--ink); font-size: 0.8rem; }
 
+/* ---------- architecture block (sidebar) ---------- */
+.pg-arch-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+.pg-arch-rows {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #ffffff;
+}
+.pg-arch-row {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  align-items: center;
+}
+.pg-arch-row:last-child { border-bottom: 0; }
+.pg-arch-key {
+  font-family: var(--font-mono);
+  font-size: 0.66rem;
+  color: var(--ink-5);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 500;
+}
+.pg-arch-val {
+  color: var(--ink);
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- orchestration footer refresh ---------- */
+.pg-orch-metric-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--acc);
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+}
+.pg-orch-metric-value {
+  font-family: var(--font-mono);
+  font-size: 0.92rem;
+  font-weight: 500;
+  color: var(--ink);
+  word-break: break-word;
+  margin-bottom: 0.25rem;
+}
+.pg-orch-metric-sub {
+  font-size: 0.75rem;
+  color: var(--ink-5);
+}
+
 /* ---------- composer additions ---------- */
 .pg-composer-actions {
   display: inline-flex;

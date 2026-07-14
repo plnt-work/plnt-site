@@ -6,7 +6,7 @@ metadata:
   name: review-responder
   version: 1.2.0
 spec:
-  description: Draft an on-brand reply to a Google Business review.
+  description: Draft an on-brand reply to a Google Maps review.
   runtime:
     image: ghcr.io/microagents/runner:0.4.0
     entrypoint: python -m review_responder
@@ -52,7 +52,7 @@ metadata:
   name: post-generator
   version: 0.9.1
 spec:
-  description: Draft a weekly Google Business Post with image prompt.
+  description: Draft a weekly Google Maps Post with image prompt.
   runtime:
     image: ghcr.io/microagents/runner:0.4.0
     entrypoint: python -m post_generator
@@ -122,7 +122,7 @@ metadata:
   name: competitor-monitor
   version: 0.5.2
 spec:
-  description: Pull competitor GBP data, extract diffs, flag opportunities.
+  description: Pull competitor Maps data, extract diffs, flag opportunities.
   runtime:
     image: ghcr.io/microagents/runner:0.4.0
     entrypoint: python -m competitor_monitor
@@ -156,30 +156,21 @@ spec:
 
 export const BACKENDS: WorkflowBackend[] = [
   {
-    id: 'gpu-cluster-01',
-    label: 'gpu-cluster-01',
-    cluster: 'us-east / eks-1',
-    region: 'us-east-1',
-    gpuClass: 'nvidia.com/h100',
-    gpuAvailable: 6,
-    status: 'ready',
-  },
-  {
-    id: 'gpu-cluster-02',
-    label: 'gpu-cluster-02',
-    cluster: 'us-west / gke-1',
-    region: 'us-west-2',
-    gpuClass: 'nvidia.com/h100',
-    gpuAvailable: 3,
-    status: 'busy',
+    id: 'hosted-proxy',
+    label: 'hosted-proxy',
+    cluster: 'DO App Platform · nyc',
+    region: 'nyc',
+    kind: 'hosted-proxy',
+    upstream: 'gpt-4o-mini via OpenAI-compat',
+    status: 'hosted',
   },
   {
     id: 'kind-local',
     label: 'kind-local',
-    cluster: 'localhost / kind',
+    cluster: 'localhost · kind',
     region: 'laptop',
-    gpuClass: 'cpu-stub',
-    gpuAvailable: 0,
+    kind: 'kind-local',
+    upstream: 'CPU stub, no LLM',
     status: 'kind',
   },
 ];
@@ -191,9 +182,9 @@ export const WORKFLOWS: Workflow[] = [
     version: '1.2.0',
     category: 'reviews',
     description:
-      'Drafts on-brand replies to Google Business reviews. Four-step DAG: classify → retrieve brand voice → draft → moderate.',
+      'Drafts on-brand replies to Google Maps reviews. Four-step DAG: classify → retrieve brand voice → draft → moderate.',
     briefing:
-      'The review-responder workflow is the flagship recipe from the microagents registry. Given a review payload, it classifies sentiment and topic, retrieves the merchant\'s brand voice from a small RAG index, drafts a reply, and passes it through a policy check. Runs on 2×H100 in ~1.1s p50. In the playground, plnt orchestrates the same DAG against a live model endpoint.',
+      'The review-responder workflow is the flagship recipe from the microagents registry. Given a review payload, it classifies sentiment and topic, retrieves the merchant\'s brand voice from a small RAG index, drafts a reply, and passes it through a policy check. Typical end-to-end latency: ~1.1s. In the playground, plnt orchestrates the same DAG against a live model endpoint.',
     steps: [
       { id: 'classify_intent',      label: 'Classify sentiment + topic',       tool: 'llm.classify',  deps: [],                     approxMs: 240 },
       { id: 'retrieve_brand_voice', label: 'Retrieve brand voice from RAG',    tool: 'rag.query',     deps: ['classify_intent'],    approxMs: 320 },
@@ -205,8 +196,8 @@ export const WORKFLOWS: Workflow[] = [
       entrypoint: 'python -m review_responder',
     },
     requirements: { gpuClass: 'nvidia.com/h100', gpuCount: 2, memoryGiB: 40 },
-    compatibleBackends: ['gpu-cluster-01', 'kind-local'],
-    defaultBackend: 'gpu-cluster-01',
+    compatibleBackends: ['hosted-proxy', 'kind-local'],
+    defaultBackend: 'hosted-proxy',
     chartVersion: 'workflow-runner-0.3.1',
     workflowRun: 'r-9c4f218e0a',
     endpoint: 'https://playground.plnt.work/v1/chat/completions',
@@ -220,9 +211,9 @@ export const WORKFLOWS: Workflow[] = [
     version: '0.9.1',
     category: 'content',
     description:
-      'Drafts weekly Google Business Posts with image prompts. Three-step DAG: pick topic → draft copy → image prompt.',
+      'Drafts weekly Google Maps Posts with image prompts. Three-step DAG: pick topic → draft copy → image prompt.',
     briefing:
-      'post-generator produces a scheduled weekly post: topic suggestion tuned to the season + local events, copy in the merchant\'s voice, and a matching image prompt. Runs on 1×H100 in ~0.9s p50. Ideal for a low-cadence content workflow that a small business would set-and-forget.',
+      'post-generator produces a scheduled weekly post: topic suggestion tuned to the season + local events, copy in the merchant\'s voice, and a matching image prompt. Typical end-to-end latency: ~0.9s. Ideal for a low-cadence content workflow that a small business would set-and-forget.',
     steps: [
       { id: 'pick_topic',   label: 'Pick a topic',              tool: 'llm.plan',     deps: [],             approxMs: 380 },
       { id: 'draft_copy',   label: 'Draft the post copy',       tool: 'llm.generate', deps: ['pick_topic'], approxMs: 420 },
@@ -233,14 +224,14 @@ export const WORKFLOWS: Workflow[] = [
       entrypoint: 'python -m post_generator',
     },
     requirements: { gpuClass: 'nvidia.com/h100', gpuCount: 1, memoryGiB: 24 },
-    compatibleBackends: ['gpu-cluster-01', 'gpu-cluster-02', 'kind-local'],
-    defaultBackend: 'gpu-cluster-02',
+    compatibleBackends: ['hosted-proxy', 'kind-local'],
+    defaultBackend: 'hosted-proxy',
     chartVersion: 'workflow-runner-0.3.1',
     workflowRun: 'r-88fe0c3b2d',
     endpoint: 'https://playground.plnt.work/v1/chat/completions',
     spec: POST_GENERATOR_SPEC,
     crd: POST_GENERATOR_CRD,
-    samplePrompt: 'Draft a Google Business Post for a coffee shop announcing a new seasonal drink launching next Monday. Cheerful, under 80 words.',
+    samplePrompt: 'Draft a Google Maps Post for a coffee shop announcing a new seasonal drink launching next Monday. Cheerful, under 80 words.',
   },
   {
     id: 'booking-triage',
@@ -250,7 +241,7 @@ export const WORKFLOWS: Workflow[] = [
     description:
       'Classifies inbound booking inquiries, checks the calendar, drafts a reply with proposed slots.',
     briefing:
-      'booking-triage handles the DM/email volume small businesses drown in. It parses the inquiry (party size, date preferences, dietary notes), checks Google Calendar free/busy, and drafts a reply offering the best available slots. On 1×A100 it runs in ~0.8s p50.',
+      'booking-triage handles the DM/email volume small businesses drown in. It parses the inquiry (party size, date preferences, dietary notes), checks Google Calendar free/busy, and drafts a reply offering the best available slots. Typical end-to-end latency: ~0.8s.',
     steps: [
       { id: 'parse_inquiry',  label: 'Parse inquiry payload', tool: 'llm.extract',  deps: [],                approxMs: 220 },
       { id: 'check_calendar', label: 'Query calendar freebusy', tool: 'gcal.freebusy', deps: ['parse_inquiry'], approxMs: 340 },
@@ -261,8 +252,8 @@ export const WORKFLOWS: Workflow[] = [
       entrypoint: 'python -m booking_triage',
     },
     requirements: { gpuClass: 'nvidia.com/a100', gpuCount: 1, memoryGiB: 16 },
-    compatibleBackends: ['gpu-cluster-01', 'kind-local'],
-    defaultBackend: 'gpu-cluster-01',
+    compatibleBackends: ['hosted-proxy', 'kind-local'],
+    defaultBackend: 'hosted-proxy',
     chartVersion: 'workflow-runner-0.3.1',
     workflowRun: 'r-4d8b2e9017',
     endpoint: 'https://playground.plnt.work/v1/chat/completions',
@@ -276,9 +267,9 @@ export const WORKFLOWS: Workflow[] = [
     version: '0.5.2',
     category: 'analytics',
     description:
-      'Pulls competitor Google Business data, extracts diffs, flags opportunities. Four-step DAG with a scheduled trigger.',
+      'Pulls competitor Google Maps data, extracts diffs, flags opportunities. Four-step DAG with a scheduled trigger.',
     briefing:
-      'competitor-monitor runs on a schedule (default hourly). It scrapes a set of competitor GBP profiles, extracts signals (new posts, review velocity, price changes), compares to the baseline in the tenant DB, and pushes an alert if something notable changes. Runs on 2×H100 in ~1.4s p50 per competitor.',
+      'competitor-monitor runs on a schedule (default hourly). It scrapes a set of competitor Maps profiles, extracts signals (new posts, review velocity, price changes), compares to the baseline in the tenant DB, and pushes an alert if something notable changes. Typical end-to-end latency: ~1.4s per competitor.',
     steps: [
       { id: 'fetch_snapshot',   label: 'Fetch competitor snapshot',   tool: 'gbp.scrape',   deps: [],                    approxMs: 480 },
       { id: 'extract_signals',  label: 'Extract structured signals',  tool: 'llm.extract',  deps: ['fetch_snapshot'],     approxMs: 360 },
@@ -290,8 +281,8 @@ export const WORKFLOWS: Workflow[] = [
       entrypoint: 'python -m competitor_monitor',
     },
     requirements: { gpuClass: 'nvidia.com/h100', gpuCount: 2, memoryGiB: 32 },
-    compatibleBackends: ['gpu-cluster-01'],
-    defaultBackend: 'gpu-cluster-01',
+    compatibleBackends: ['hosted-proxy', 'kind-local'],
+    defaultBackend: 'hosted-proxy',
     chartVersion: 'workflow-runner-0.3.1',
     workflowRun: 'r-71a2f04c1e',
     endpoint: 'https://playground.plnt.work/v1/chat/completions',

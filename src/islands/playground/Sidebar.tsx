@@ -11,6 +11,8 @@ interface Props {
 
 export default function Sidebar({ workflow, backend, onSelectWorkflow, onSelectBackend, onStart }: Props) {
   const compatibleBackends = BACKENDS.filter((b) => workflow.compatibleBackends.includes(b.id));
+  const registryRef = `microagents/${workflow.name}@${workflow.version}`;
+  const runnerImage = workflow.runtime.image.split('/').pop() || workflow.runtime.image;
 
   return (
     <aside class="pg-sidebar">
@@ -38,30 +40,41 @@ export default function Sidebar({ workflow, backend, onSelectWorkflow, onSelectB
             class="pg-variant-select"
             value={backend.id}
             onChange={(e) => onSelectBackend((e.currentTarget as HTMLSelectElement).value)}
-            aria-label="GPU backend cluster"
+            aria-label="Deployment backend"
           >
             {compatibleBackends.map((b) => (
               <option value={b.id}>{b.label} · {b.status}</option>
             ))}
           </select>
-          <div class="pg-sub">{backend.cluster} · {backend.gpuAvailable} {backend.gpuClass.replace('nvidia.com/', '')} free</div>
+          <div class="pg-sub">{backend.cluster} · {backend.upstream}</div>
         </div>
 
         <button class="pg-cta" onClick={onStart}>
           Invoke workflow <span class="pg-cta-arrow">→</span>
         </button>
 
-        <dl class="pg-meta">
-          <div><dt>Runtime</dt><dd class="pg-mono">{workflow.runtime.image.split('/').pop()}</dd></div>
-          <div><dt>GPU</dt><dd>{workflow.requirements.gpuCount}× {workflow.requirements.gpuClass.replace('nvidia.com/', '')}</dd></div>
-          <div><dt>Memory</dt><dd>{workflow.requirements.memoryGiB} GiB</dd></div>
-          <div><dt>Chart</dt><dd class="pg-mono">{workflow.chartVersion}</dd></div>
-          <div><dt>Run ID</dt><dd class="pg-mono">{workflow.workflowRun}</dd></div>
-        </dl>
+        <div class="pg-arch-block">
+          <div class="pg-label">Architecture</div>
+          <div class="pg-arch-rows">
+            <div class="pg-arch-row">
+              <div class="pg-arch-key">Runtime</div>
+              <div class="pg-arch-val pg-mono">{runnerImage}</div>
+            </div>
+            <div class="pg-arch-row">
+              <div class="pg-arch-key">Registry</div>
+              <div class="pg-arch-val pg-mono">{registryRef}</div>
+            </div>
+            <div class="pg-arch-row">
+              <div class="pg-arch-key">Backend</div>
+              <div class="pg-arch-val pg-mono">{backend.label}</div>
+            </div>
+          </div>
+        </div>
 
         <p class="pg-footnote">
           Sessions live in memory — refresh clears them.
           Point clients at your own plnt endpoint via <code>PUBLIC_PLNT_ENDPOINT</code>.
+          The <a href="#" onClick={(e) => { e.preventDefault(); }}>Manifest</a> tab shows the WorkflowRun spec for a self-hosted GPU deploy.
         </p>
       </div>
     </aside>

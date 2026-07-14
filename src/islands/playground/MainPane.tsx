@@ -125,6 +125,8 @@ function BriefingTab({ workflow, backend }: { workflow: Workflow; backend: Workf
 function OrchestrationTab({ workflow, backend, stepRuns }: { workflow: Workflow; backend: WorkflowBackend; stepRuns: StepRun[] }) {
   const statusFor = (id: string) => stepRuns.find((r) => r.stepId === id)?.status ?? 'pending';
   const totalMs = workflow.steps.reduce((a, s) => a + s.approxMs, 0);
+  const registryRef = `microagents/${workflow.name}@${workflow.version}`;
+  const runnerImage = workflow.runtime.image.split('/').pop() || workflow.runtime.image;
 
   return (
     <div class="pg-orch">
@@ -132,8 +134,7 @@ function OrchestrationTab({ workflow, backend, stepRuns }: { workflow: Workflow;
         <div>
           <div class="pg-label">Step DAG</div>
           <p class="pg-orch-sub">
-            {workflow.steps.length} steps · ~{totalMs}ms end-to-end on {backend.gpuAvailable > 0 ? `${workflow.requirements.gpuCount}× ${workflow.requirements.gpuClass.replace('nvidia.com/', '')}` : 'CPU stub (kind)'}.
-            Runs live during an invocation.
+            {workflow.steps.length} steps · ~{totalMs}ms end-to-end. Runs live during an invocation.
           </p>
         </div>
         <span class={`pg-backend-badge pg-backend-${backend.status}`}>{backend.label} · {backend.status}</span>
@@ -163,16 +164,19 @@ function OrchestrationTab({ workflow, backend, stepRuns }: { workflow: Workflow;
 
       <div class="pg-orch-footer">
         <div class="pg-orch-metric">
-          <div class="pg-label">Chart</div>
-          <div class="pg-mono">{workflow.chartVersion}</div>
+          <div class="pg-orch-metric-tag">01 · Runtime</div>
+          <div class="pg-orch-metric-value">{runnerImage}</div>
+          <div class="pg-orch-metric-sub">workflow runner image</div>
         </div>
         <div class="pg-orch-metric">
-          <div class="pg-label">Backend</div>
-          <div class="pg-mono">{backend.cluster}</div>
+          <div class="pg-orch-metric-tag">02 · Registry</div>
+          <div class="pg-orch-metric-value">{registryRef}</div>
+          <div class="pg-orch-metric-sub">pulled from microagents</div>
         </div>
         <div class="pg-orch-metric">
-          <div class="pg-label">Run ID</div>
-          <div class="pg-mono">{workflow.workflowRun}</div>
+          <div class="pg-orch-metric-tag">03 · Backend</div>
+          <div class="pg-orch-metric-value">{backend.label}</div>
+          <div class="pg-orch-metric-sub">{backend.cluster}</div>
         </div>
       </div>
     </div>

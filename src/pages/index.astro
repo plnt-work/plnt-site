@@ -1,6 +1,14 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import LogStream from '../components/LogStream.astro';
+import StackFlow from '../components/StackFlow.astro';
+
+const stackNodes = [
+  { key: 'maps-micro-saas', tag: 'PRODUCT', title: 'maps-micro-saas', subtitle: 'End-user SaaS · reviews · posts · bookings', meta: 'invokes ↓' },
+  { key: 'microagents', tag: 'REGISTRY', title: 'microagents', subtitle: 'Workflow recipes · pluggable · S3 / OCI', meta: 'pulls spec ↓' },
+  { key: 'plnt', tag: 'RUNTIME', title: 'plnt', subtitle: 'WorkflowRun CRD · Temporal saga · Helm · canary · rollback', highlight: true, meta: 'helm install ↓' },
+  { key: 'k8s', tag: 'BACKEND', title: 'Kubernetes + GPU', subtitle: 'kind · GKE · EKS · on-prem · scheduler · nvidia.com/gpu' },
+];
 
 const title = 'plnt — orchestration runtime for agentic workflows';
 const description = 'Pick a workflow from the microagents registry, pick a GPU backend, and plnt handles the Helm deploy, canary, and rollback. Apache-2.0.';
@@ -18,11 +26,11 @@ const runStream = [
 
 const repos = [
   {
-    key: 'google-business',
+    key: 'maps-micro-saas',
     tag: 'PRODUCT',
-    desc: 'AI copilot for Google Business Profile owners. Auto-reply to reviews, generate weekly posts, triage booking inquiries, publish updates.',
+    desc: 'AI copilot for Google Maps profile owners. Auto-reply to reviews, generate weekly posts, triage booking inquiries, publish updates.',
     role: 'The end-user product. Pulls its workflows from microagents; runs them on plnt.',
-    href: 'https://github.com/plnt-work/google-business',
+    href: 'https://github.com/plnt-work/maps-micro-saas',
   },
   {
     key: 'microagents',
@@ -152,36 +160,8 @@ const steps = [
         ))}
       </div>
 
-      <div class="term mt-6" style="max-width: 940px;">
-        <div class="chrome">
-          <span class="dots"><span></span><span></span><span></span></span>
-          <span>architecture · top-down</span>
-        </div>
-        <div class="body">
-<pre style="font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.65; color: var(--ink-3); margin: 0;">    ┌────────────────────────────────────┐
-    │  google-business   (end-user SaaS)   │  reviews · posts · bookings
-    └───────────────────┬────────────────┘
-                        │  invokes
-                        ▼
-    ┌────────────────────────────────────┐
-    │  microagents  (workflow registry)  │  pluggable recipes on S3
-    │  review-responder · post-generator │
-    │  booking-triage  · trend-monitor   │
-    └───────────────────┬────────────────┘
-                        │  pulls spec
-                        ▼
-    ┌────────────────────────────────────┐
-    │  plnt  (orchestration runtime)     │  ← this repo
-    │  WorkflowRun CRD · Temporal saga   │
-    │  Helm install · canary · rollback  │
-    └───────────────────┬────────────────┘
-                        │  helm install
-                        ▼
-    ┌────────────────────────────────────┐
-    │  Kubernetes GPU backends           │  kind · GKE · EKS · on-prem
-    │  scheduler · nvidia.com/gpu        │
-    └────────────────────────────────────┘</pre>
-        </div>
+      <div class="mt-6">
+        <StackFlow nodes={stackNodes} caption="Architecture · top-down" />
       </div>
     </div>
   </section>

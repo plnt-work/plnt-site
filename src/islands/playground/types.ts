@@ -13,9 +13,9 @@ export interface WorkflowBackend {
   label: string;
   cluster: string;
   region: string;
-  gpuClass: string;
-  gpuAvailable: number;
-  status: 'ready' | 'busy' | 'kind';
+  kind: 'hosted-proxy' | 'k8s-gpu' | 'kind-local';
+  upstream: string;
+  status: 'ready' | 'busy' | 'kind' | 'hosted';
 }
 
 export interface Workflow {
