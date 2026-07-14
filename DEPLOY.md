@@ -12,11 +12,11 @@ Target topology:
 
 ```sh
 # from /Users/dev16/Documents/den-agent/plnt-site
-vercel login              # opens browser; log in as devdattatalele
-vercel --yes              # links the project (scope=devdattatalele, name=plnt-site, framework=Astro) and ships a preview
+vercel login              # opens browser; log in as sagarb27
+vercel --yes              # links the project (scope=sagarb27, name=plnt-site, framework=Astro) and ships a preview
 ```
 
-Preview URL will be something like `https://plnt-site-<hash>-devdattatalele.vercel.app`. Open it — the `/playground` route should render with the model sidebar + chat panel. Chat will show `stub` (backend not wired yet).
+Preview URL will be something like `https://plnt-site-<hash>-sagarb27.vercel.app`. Open it — the `/playground` route should render with the model sidebar + chat panel. Chat will show `stub` (backend not wired yet).
 
 ## 2. Promote to production
 
