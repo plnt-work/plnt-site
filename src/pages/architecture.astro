@@ -132,7 +132,7 @@ const runLog = [
 ];
 
 const layers = [
-  { k: 'PRODUCT', v: '<strong>plnt-cloud (or any consumer).</strong> A SaaS surface that needs narrow, reliable AI features. Calls the workflow endpoint plnt exposes — same shape for every workflow.' },
+  { k: 'PRODUCT', v: '<strong>google-business (or any consumer).</strong> A SaaS surface that needs narrow, reliable AI features. Calls the workflow endpoint plnt exposes — same shape for every workflow.' },
   { k: 'REGISTRY', v: '<strong>microagents.</strong> S3-backed store of workflow specs (steps, tool bindings, GPU requirements). Versioned, hash-verifiable, pullable. Publishing is a git push + a sync job.' },
   { k: 'RUNTIME', v: '<strong>plnt.</strong> Watches a <code>WorkflowRun</code> CRD → runs a Temporal saga → Helm-installs a runner pod on the chosen backend → canary → promote or rollback.' },
   { k: 'BACKEND', v: '<strong>Any Kubernetes + GPU node pool.</strong> plnt speaks to the K8s API; backends are declared once in a <code>PlntBackend</code> resource and referenced by name from every WorkflowRun.' },
@@ -189,7 +189,7 @@ const gaps = [
           <span>plnt · single-cluster topology</span>
         </div>
         <div class="body">
-<pre style="font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.65; color: var(--ink-3); margin: 0;">    plnt CLI                    kubectl                    plnt-cloud
+<pre style="font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.65; color: var(--ink-3); margin: 0;">    plnt CLI                    kubectl                    google-business
        │                          │                            │
        └──────────────┬───────────┘                            │
                       ▼                                        │
