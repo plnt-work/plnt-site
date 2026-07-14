@@ -17,8 +17,8 @@
 /* ---------- sidebar ---------- */
 .pg-sidebar {
   border-right: 1px solid var(--rule);
-  background: var(--bg);
-  padding: 2rem 1.75rem 3rem;
+  background: var(--bg-2);
+  padding: 1.75rem 1.5rem 2.5rem;
   position: sticky;
   top: 60px;
   align-self: start;
@@ -36,7 +36,7 @@
 .pg-sidebar-inner {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.35rem;
 }
 
 .pg-block { display: flex; flex-direction: column; gap: 0.45rem; }
@@ -54,36 +54,39 @@
 .pg-variant-select {
   appearance: none;
   -webkit-appearance: none;
-  background: transparent;
+  background: #ffffff;
   color: var(--ink);
-  border: 0;
-  border-bottom: 1px solid var(--rule-strong);
-  padding: 0.35rem 1.2rem 0.45rem 0;
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 0.55rem 2rem 0.55rem 0.75rem;
   font-family: var(--font-sans);
-  font-size: 1.2rem;
+  font-size: 0.92rem;
   font-weight: 500;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   cursor: pointer;
   background-image:
-    linear-gradient(45deg, transparent 50%, var(--ink-4) 50%),
-    linear-gradient(-45deg, transparent 50%, var(--ink-4) 50%);
+    linear-gradient(45deg, transparent 50%, var(--ink-5) 50%),
+    linear-gradient(-45deg, transparent 50%, var(--ink-5) 50%);
   background-position:
-    calc(100% - 8px) 55%,
-    calc(100% - 3px) 55%;
+    calc(100% - 14px) 55%,
+    calc(100% - 9px) 55%;
   background-size: 5px 5px, 5px 5px;
   background-repeat: no-repeat;
-  border-radius: 0;
-  transition: border-color 0.12s ease;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
 .pg-variant-select {
   font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   font-weight: 400;
 }
 .pg-model-select:hover,
-.pg-variant-select:hover { border-bottom-color: var(--acc); }
+.pg-variant-select:hover { border-color: var(--ink-5); }
 .pg-model-select:focus,
-.pg-variant-select:focus { outline: none; border-bottom-color: var(--acc); }
+.pg-variant-select:focus {
+  outline: none;
+  border-color: var(--acc);
+  box-shadow: 0 0 0 3px var(--acc-ring);
+}
 
 .pg-sub {
   font-family: var(--font-mono);
@@ -103,21 +106,21 @@
 .pg-cta {
   display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  padding: 0.7rem 0.95rem;
-  background: transparent;
-  color: var(--ink);
-  border: 1px solid var(--rule-strong);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1rem;
+  background: var(--ink);
+  color: #ffffff;
+  border: 1px solid var(--ink);
+  border-radius: 8px;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: -0.005em;
   cursor: pointer;
-  transition: border-color 0.12s ease, color 0.12s ease;
+  transition: background 0.12s ease, transform 0.12s ease;
 }
-.pg-cta:hover { border-color: var(--acc); color: var(--acc); }
+.pg-cta:hover { background: var(--ink-2); transform: translateY(-1px); }
 .pg-cta-arrow { transition: transform 0.15s ease; }
 .pg-cta:hover .pg-cta-arrow { transform: translateX(2px); }
 
@@ -175,18 +178,27 @@
 }
 
 .pg-title {
-  font-size: clamp(1.65rem, 2.6vw, 2.15rem);
+  font-size: clamp(1.5rem, 2.4vw, 1.95rem);
   font-weight: 600;
-  letter-spacing: -0.025em;
+  letter-spacing: -0.028em;
   color: var(--ink);
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.4rem;
+  font-family: var(--font-sans);
+}
+.pg-title-ver {
   font-family: var(--font-mono);
+  font-size: 0.82rem;
+  color: var(--ink-5);
+  font-weight: 400;
+  margin-left: 0.5rem;
+  letter-spacing: 0;
+  vertical-align: middle;
 }
 .pg-header-desc {
-  font-size: 0.95rem;
-  color: var(--ink-3);
+  font-size: 0.925rem;
+  color: var(--ink-4);
   line-height: 1.55;
-  max-width: 70ch;
+  max-width: 68ch;
   margin: 0;
 }
 
@@ -220,28 +232,28 @@
 /* ---------- tabs ---------- */
 .pg-tabs {
   display: flex;
-  gap: 1.75rem;
+  gap: 0.35rem;
   border-bottom: 1px solid var(--rule);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
   overflow-x: auto;
 }
 .pg-tab {
   background: transparent;
   border: 0;
-  color: var(--ink-4);
-  font-family: var(--font-mono);
-  font-size: 0.72rem;
+  color: var(--ink-5);
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.14em;
-  padding: 0.6rem 0;
+  padding: 0.65rem 0.9rem;
   cursor: pointer;
-  border-bottom: 1px solid transparent;
+  border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: color 0.12s ease, border-color 0.12s ease;
+  border-radius: 6px 6px 0 0;
+  transition: color 0.12s ease, background 0.12s ease, border-color 0.12s ease;
 }
-.pg-tab:hover { color: var(--ink-2); }
-.pg-tab-active { color: var(--ink); border-bottom-color: var(--acc); }
+.pg-tab:hover { color: var(--ink); background: var(--bg-3); }
+.pg-tab-active { color: var(--ink); border-bottom-color: var(--ink); background: transparent; }
+.pg-tab-active:hover { background: transparent; }
 
 .pg-body { min-height: 60vh; }
 
@@ -431,16 +443,6 @@
   white-space: pre;
 }
 
-/* ---------- version suffix in title ---------- */
-.pg-title-ver {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  color: var(--ink-5);
-  font-weight: 400;
-  margin-left: 0.5rem;
-  letter-spacing: 0;
-}
-
 /* ---------- orchestration tab ---------- */
 .pg-orch {
   display: flex;
@@ -487,23 +489,23 @@
 }
 .pg-step {
   display: grid;
-  grid-template-columns: 40px 1fr auto;
+  grid-template-columns: 36px 1fr auto;
   align-items: center;
   gap: 1rem;
-  padding: 1rem 1.15rem;
+  padding: 0.85rem 1rem;
   background: #ffffff;
   border: 1px solid var(--rule);
-  border-radius: 10px;
+  border-radius: 8px;
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .pg-step-running {
   border-color: var(--acc);
   background: var(--acc-soft);
-  box-shadow: 0 0 0 4px var(--acc-ring);
 }
 .pg-step-done {
   border-color: var(--rule);
   background: var(--bg-2);
+  opacity: 0.85;
 }
 .pg-step-idx {
   font-family: var(--font-mono);

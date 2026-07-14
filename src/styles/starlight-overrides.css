@@ -70,24 +70,24 @@ html, body {
 
 /* ---------- typography ---------- */
 .sl-markdown-content {
-  --sl-content-width: 46rem;
-  font-size: 15.5px;
-  line-height: 1.7;
+  --sl-content-width: 44rem;
+  font-size: 15px;
+  line-height: 1.72;
   color: var(--sl-color-gray-2);
 }
 
 .sl-markdown-content h1 {
   font-weight: 600;
-  letter-spacing: -0.028em;
+  letter-spacing: -0.03em;
   color: var(--sl-color-white);
-  font-size: 2.25rem;
+  font-size: 2rem;
   line-height: 1.15;
 }
 .sl-markdown-content h2 {
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.022em;
   color: var(--sl-color-white);
-  font-size: 1.4rem;
+  font-size: 1.3rem;
   margin-top: 3rem;
   padding-top: 2rem;
   border-top: 1px solid var(--sl-color-hairline);
@@ -96,19 +96,19 @@ html, body {
 .sl-markdown-content h2:first-of-type {
   border-top: 0;
   padding-top: 0;
-  margin-top: 2rem;
+  margin-top: 1.75rem;
 }
 .sl-markdown-content h3 {
   font-weight: 600;
   letter-spacing: -0.015em;
   color: var(--sl-color-white);
-  font-size: 1.05rem;
-  margin-top: 2rem;
+  font-size: 1rem;
+  margin-top: 1.75rem;
 }
 .sl-markdown-content h4 {
   font-weight: 500;
   color: var(--sl-color-gray-1);
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   margin-top: 1.5rem;
 }
 
@@ -152,7 +152,7 @@ html, body {
   border: 1px solid var(--sl-color-hairline);
   background: #fafafa !important;
   border-radius: 8px;
-  padding: 1rem 1.25rem;
+  padding: 0.9rem 1.1rem;
   overflow-x: auto;
 }
 .sl-markdown-content pre code {
@@ -160,7 +160,7 @@ html, body {
   border: 0;
   padding: 0;
   color: #18181b;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   line-height: 1.65;
   font-weight: 400;
 }
@@ -227,30 +227,31 @@ header.header {
 .sidebar-content { font-family: var(--sl-font); padding: 1rem 0.25rem; }
 .sidebar-content details > summary {
   font-family: var(--sl-font);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.16em;
   color: var(--sl-color-gray-4);
   font-weight: 600;
-  padding: 0.6rem 0.85rem 0.35rem;
+  padding: 0.75rem 0.9rem 0.4rem;
 }
 .sidebar-content a {
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   color: var(--sl-color-gray-3);
-  padding: 0.3rem 0.85rem;
+  padding: 0.35rem 0.9rem;
   border-left: 2px solid transparent;
   border-radius: 0;
   transition: color 0.1s ease, border-color 0.1s ease, background 0.1s ease;
 }
 .sidebar-content a:hover {
   color: var(--sl-color-white);
-  background: var(--sl-color-gray-7);
+  background: transparent;
+  border-left-color: var(--sl-color-gray-5);
 }
 .sidebar-content a[aria-current='page'] {
-  color: var(--sl-color-accent-high) !important;
-  background: var(--sl-color-accent-low) !important;
+  color: var(--sl-color-white) !important;
+  background: transparent !important;
   border-left: 2px solid var(--sl-color-accent) !important;
-  font-weight: 500;
+  font-weight: 600;
 }
 
 /* ---------- right TOC ---------- */

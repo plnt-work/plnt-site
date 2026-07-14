@@ -349,28 +349,29 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
 .sechead {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.5rem;
-  margin-bottom: 2.5rem;
+  gap: 1rem;
+  margin-bottom: 2.25rem;
 }
 @media (min-width: 760px) {
-  .sechead { grid-template-columns: 180px 1fr; gap: 3.5rem; align-items: start; }
+  .sechead { grid-template-columns: 160px 1fr; gap: 3rem; align-items: start; }
 }
 .sechead .count {
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   color: var(--ink-5);
-  letter-spacing: 0.15em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  padding-top: 0.15rem;
+  padding-top: 0.35rem;
+  font-weight: 500;
 }
 .sechead .count .of { color: var(--ink-6); }
 .sechead .lead-text {
   color: var(--ink-2);
-  font-size: 1.15rem;
-  line-height: 1.55;
-  max-width: 60ch;
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 58ch;
   font-weight: 500;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.012em;
 }
 .sechead .lead-text strong { color: var(--ink); font-weight: 600; }
 
@@ -458,14 +459,13 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
 .card {
   background: #ffffff;
   border: 1px solid var(--rule);
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: border-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  border-radius: 10px;
+  padding: 1.35rem;
+  transition: border-color 0.12s ease, transform 0.12s ease;
 }
 .card:hover {
   border-color: var(--ink-6);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.04);
 }
 .card .card-icon {
   width: 32px;
@@ -512,21 +512,20 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
 .term {
   background: #ffffff;
   border: 1px solid var(--rule);
-  border-radius: 12px;
+  border-radius: 10px;
   font-family: var(--font-mono);
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.03);
 }
 .term .chrome {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  padding: 0.7rem 1rem;
+  gap: 0.55rem;
+  padding: 0.6rem 0.9rem;
   border-bottom: 1px solid var(--rule);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   color: var(--ink-5);
   text-transform: uppercase;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   background: var(--bg-2);
 }
 .term .chrome .dots { display: flex; gap: 0.35rem; }
