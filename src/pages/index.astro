@@ -2,76 +2,125 @@
 import Layout from '../layouts/Layout.astro';
 import LogStream from '../components/LogStream.astro';
 
-const title = 'plnt — multi-model inference on Kubernetes';
-const description = 'Deploy vLLM, TGI, TRT-LLM, and SGLang on Kubernetes with one Helm chart per runtime, a Temporal deploy saga, and an InferenceModel CRD. Apache-2.0.';
+const title = 'plnt — orchestration runtime for agentic workflows';
+const description = 'Pick a workflow from the microagents registry, pick a GPU backend, and plnt handles the Helm deploy, canary, and rollback. Apache-2.0.';
 
-const deployStream = [
-  { ts: '04:17:33', kind: 'apply',      payload: 'InferenceModel/<span class="v">llama-3-70b-instruct</span> · runtime=<span class="v">vllm</span> · gpu=<span class="v">2×H100</span>' },
-  { ts: '04:17:33', kind: 'workflow',   payload: 'temporal://plnt/deploy · run=<span class="v">r-9c4f218e0a</span>' },
-  { ts: '04:17:34', kind: 'validate',   payload: 'values.yaml ok · storage_uri reachable · image pullable' },
-  { ts: '04:17:39', kind: 'pull',       payload: 'safetensors · <span class="v">141 GiB</span> · CAS hit=<span class="v">partial</span> · verified' },
-  { ts: '04:18:02', kind: 'helm',       payload: 'install release=llama-70b-canary · replicas=1 · traffic=5%' },
-  { ts: '04:19:41', kind: 'smoke',      payload: 'TTFT p50=<span class="v">182ms</span> · tokens/s/GPU=<span class="v">87</span> · pass' },
-  { ts: '04:19:42', kind: 'promote',    payload: 'canary → stable · replicas=1→3 · traffic=100%' },
-  { ts: '04:19:42', kind: 'ready',      payload: '<span class="v">https://llama-3-70b-instruct.plnt.svc/v1/chat/completions</span>' },
+const runStream = [
+  { ts: '04:17:33', kind: 'pull',       payload: 'workflow=<span class="v">review-responder@1.2.0</span> · source=<span class="v">s3://microagents/</span>' },
+  { ts: '04:17:34', kind: 'resolve',    payload: 'backend=<span class="v">gpu-cluster-01</span> · gpus=<span class="v">2× available</span> · region=<span class="v">us-east</span>' },
+  { ts: '04:17:34', kind: 'workflow',   payload: 'temporal://plnt/orchestrate · run=<span class="v">r-9c4f218e0a</span>' },
+  { ts: '04:17:35', kind: 'validate',   payload: 'spec ok · tool bindings ok · gpu class satisfied · image pullable' },
+  { ts: '04:17:41', kind: 'helm',       payload: 'install release=<span class="v">review-responder-canary</span> · replicas=1 · traffic=5%' },
+  { ts: '04:19:14', kind: 'smoke',      payload: '10 sample invocations · p50=<span class="v">1.1s</span> · errors=<span class="v">0</span> · pass' },
+  { ts: '04:19:15', kind: 'promote',    payload: 'canary → stable · replicas=1→3 · traffic=100%' },
+  { ts: '04:19:15', kind: 'ready',      payload: '<span class="v">https://review-responder.plnt.svc/invoke</span>' },
 ];
 
-const runtimes = [
-  { k: 'vLLM',    v: '<strong>Paged attention · continuous batching · prefix cache.</strong> Default runtime for general LLM serving. Chart: <code>plnt/charts/vllm-runtime</code>.' },
-  { k: 'TGI',     v: '<strong>Hugging Face Text Generation Inference.</strong> Flash-attention 2, tensor parallel, GPTQ / AWQ / FP8. Chart: <code>plnt/charts/tgi-runtime</code>.' },
-  { k: 'TRT-LLM', v: '<strong>Precompiled TensorRT engines on Triton.</strong> Highest per-GPU throughput; engine build runs as a workflow step. Chart: <code>plnt/charts/trt-llm-runtime</code>.' },
-  { k: 'SGLang',  v: '<strong>RadixAttention prefix caching.</strong> Strong for multi-turn and structured generation. Chart: <code>plnt/charts/sglang-runtime</code>.' },
+const repos = [
+  {
+    key: 'plnt-cloud',
+    tag: 'PRODUCT',
+    desc: 'AI copilot for Google Business Profile owners. Auto-reply to reviews, generate weekly posts, triage booking inquiries, publish updates.',
+    role: 'The end-user product. Pulls its workflows from microagents; runs them on plnt.',
+    href: 'https://github.com/plnt-work/plnt-cloud',
+  },
+  {
+    key: 'microagents',
+    tag: 'REGISTRY',
+    desc: 'Pluggable agentic workflows. Each one ships as a spec + code, versioned and pullable over S3. Think npm, but for agent recipes.',
+    role: 'The workflow layer. Anyone can publish; anyone can pull. Fully open.',
+    href: 'https://github.com/plnt-work/microagents',
+  },
+  {
+    key: 'plnt',
+    tag: 'RUNTIME',
+    desc: 'Given a workflow spec + a Kubernetes backend, plnt orchestrates the run: Helm deploy, canary, smoke test, promote or rollback, all as a Temporal saga.',
+    role: 'The infra load-bearing piece. This is the deep repo.',
+    href: 'https://github.com/plnt-work/plnt',
+  },
 ];
 
-const sagaSteps = [
-  { n: '01', title: 'validate_manifest',       body: '<code>values.yaml</code> is schema-valid, storage URI reachable, image pullable, GPU class available on the target node pool.' },
-  { n: '02', title: 'pull_and_verify_weights', body: 'Weights fetched from the CAS-backed registry. Hash checked against the manifest. Idempotent — a partial pull resumes.' },
-  { n: '03', title: 'helm_install_canary',     body: '<code>helm install</code> at 5% traffic via Envoy <code>VirtualService</code> weights. Canary replica scheduled on the target GPU class.' },
-  { n: '04', title: 'run_smoke_test',          body: 'N test prompts. TTFT / TPOT / tokens-per-sec measured against baseline. KPI budget from <code>InferenceModel.spec.canary</code>.' },
-  { n: '05', title: 'promote_or_rollback',     body: 'KPIs pass → scale to <code>replicas.min</code> at 100%. KPIs fail → <code>helm rollback</code>. Compensation on any earlier step failure.' },
+const features = [
+  {
+    icon: '01',
+    title: 'Workflow-first',
+    body: 'Point plnt at a workflow spec pulled from any OCI or S3 registry. Steps, tool bindings, GPU class, replicas — all declared, not scripted.',
+  },
+  {
+    icon: '02',
+    title: 'Backend-agnostic',
+    body: 'Any Kubernetes cluster with GPU nodes. Same YAML runs on kind, GKE, EKS, on-prem. Pick the backend at deploy time.',
+  },
+  {
+    icon: '03',
+    title: 'Canary by default',
+    body: 'Every run is a canary first. 5% traffic → smoke test → promote. Fails fast, rolls back cleanly. Compensation via Temporal, not bash scripts.',
+  },
+  {
+    icon: '04',
+    title: 'Durable saga',
+    body: 'Every deploy is a Temporal workflow. Process restarts resume from the last completed step. Nothing hides in bash state or in-memory queues.',
+  },
+  {
+    icon: '05',
+    title: 'Multi-GPU aware',
+    body: 'Workflows declare GPU class + count. plnt schedules across node pools, respects nvidia.com/gpu limits, streams GPU utilization back to the caller.',
+  },
+  {
+    icon: '06',
+    title: 'One CRD, one contract',
+    body: 'A single WorkflowRun CRD is the entire deploy trigger. kubectl apply. The operator does the rest.',
+  },
 ];
 
-const choices = [
-  { k: 'Declarative CRD', v: '<strong><code>InferenceModel</code> is the entire deploy contract.</strong> One <code>kubectl apply</code> triggers pull, deploy, smoke, promote. Reconciliation is the operator\'s job — not a bash script.' },
-  { k: 'Saga, not script', v: '<strong>Every deploy is a Temporal workflow.</strong> Compensation on failure, retries with budgets (not per-hop), resume-across-restart. The saga is inspectable in the Temporal UI.' },
-  { k: 'Operator, not glue', v: '<strong>A Python <code>kopf</code> operator watches the CRD.</strong> Create/update/delete on the resource is the trigger. Nothing else runs kubectl on your behalf.' },
-  { k: 'Canary, not YOLO',  v: '<strong>Every deploy is a canary first.</strong> 5% traffic → smoke test → promote. KPI budget in the manifest. Failed canaries roll back automatically.' },
-  { k: 'Runtime-agnostic',  v: '<strong>One <code>RuntimeAdapter</code> interface, four backends.</strong> vLLM / TGI / TRT-LLM / SGLang share a control API. The chart per runtime is the deployment shape; the adapter is the code shape.' },
-  { k: 'OpenAI wire format', v: '<strong>Every runtime exposes <code>/v1/chat/completions</code>.</strong> Existing OpenAI clients work unmodified. Streaming via SSE. No proprietary SDK.' },
+const steps = [
+  { n: '01', title: 'Pull', body: 'Fetch a workflow spec from microagents (or any S3/OCI registry). Verified by hash, pinned by version.' },
+  { n: '02', title: 'Orchestrate', body: 'plnt starts a Temporal saga: validate → helm install canary → smoke → promote or rollback. Durable, resumable, inspectable.' },
+  { n: '03', title: 'Serve', body: 'Workflow is reachable at <code>&lt;name&gt;.plnt.svc/invoke</code>. Uniform request shape across every workflow.' },
 ];
 ---
 
 <Layout title={title} description={description} path="/">
 
-  <section class="section" style="padding-top: clamp(5rem, 10vw, 8rem); padding-bottom: clamp(4rem, 7vw, 6rem);">
+  <section class="hero">
     <div class="container">
-      <span class="chip"><span class="dot">Y</span> Open source · Apache-2.0</span>
-      <h1 class="mt-4" style="max-width: 18ch;">
-        Multi-model inference<br />on <span style="color: var(--acc);">Kubernetes.</span>
+      <span class="chip solid"><span class="dot">Y</span> Open source · Apache-2.0</span>
+      <h1 class="mt-4" style="max-width: 20ch;">
+        Ship agentic workflows to <span class="grad">any GPU backend</span>.
       </h1>
-      <p class="lead mt-4" style="max-width: 62ch;">
-        One Helm chart per runtime — vLLM, TGI, TRT-LLM, SGLang.
-        A Temporal saga drives every deploy: pull weights, canary, smoke, promote or rollback.
-        An <code>InferenceModel</code> CRD makes <code>kubectl apply</code> the entire trigger.
+      <p class="lead mt-4" style="max-width: 60ch;">
+        plnt is the orchestration runtime for micro-agent workflows.
+        Pick a workflow from the registry, pick a Kubernetes GPU cluster,
+        and plnt handles the Helm deploy, canary, and rollback — as a durable Temporal saga.
       </p>
       <div class="flex gap wrap mt-5">
-        <a class="btn primary" href="https://play.plnt.work" target="_blank" rel="noopener">Open playground <span class="arrow">→</span></a>
+        <a class="btn primary" href="https://play.plnt.work" target="_blank" rel="noopener">
+          Open playground <span class="arrow">→</span>
+        </a>
         <a class="btn" href="/architecture">Read architecture</a>
+        <a class="btn ghost" href="https://github.com/plnt-work/plnt" target="_blank" rel="noopener">GitHub ↗</a>
       </div>
 
-      <div class="mt-6" style="max-width: 780px;">
+      <div class="mt-6" style="max-width: 820px;">
         <div class="term">
           <div class="chrome">
             <span class="dots"><span></span><span></span><span></span></span>
-            <span>~/plnt · deploy llama-3-70b-instruct</span>
+            <span>plnt run review-responder</span>
           </div>
           <div class="body">
             <div style="margin-bottom: 0.75rem;">
-              <span class="prompt">$</span> kubectl apply -f examples/llama-3-70b-instruct.yaml
+              <span class="prompt">$</span> plnt run review-responder@1.2.0 --backend gpu-cluster-01
             </div>
-            <LogStream events={deployStream} />
+            <LogStream events={runStream} />
           </div>
         </div>
+      </div>
+
+      <div class="mt-6 metric-strip">
+        <div class="m"><div class="k">Runtime</div><div class="v">Temporal saga</div><div class="sub">durable · resumable</div></div>
+        <div class="m"><div class="k">Registry</div><div class="v">S3 / OCI</div><div class="sub">version pinned</div></div>
+        <div class="m"><div class="k">Backend</div><div class="v">Any K8s + GPU</div><div class="sub">kind → prod</div></div>
+        <div class="m"><div class="k">Deploy</div><div class="v">Helm + canary</div><div class="sub">5% → smoke → 100%</div></div>
       </div>
     </div>
   </section>
@@ -79,129 +128,81 @@ const choices = [
   <section class="section">
     <div class="container">
       <div class="sechead">
-        <div class="count">01 <span class="of">/ 06</span> — WHAT</div>
-        <h2 class="lead-text" style="font-size: clamp(1.5rem, 2.6vw, 2rem); font-weight: 500; letter-spacing: -0.02em; line-height: 1.25;">
-          <strong>plnt is a mini inference-factory for Kubernetes.</strong>
-          Helm charts per runtime, a Temporal saga per deploy, a CRD per model.
-          The pieces that turn "I trained a model" into "the model is serving traffic on a cluster."
-        </h2>
+        <div class="count">01 <span class="of">/ 05</span> — THE STACK</div>
+        <div>
+          <p class="lead-text">
+            <strong>Three repos, one story.</strong>
+            An end-user product that needs narrow, reliable AI features.
+            A public registry of workflow recipes anyone can pull.
+            A runtime that turns any Kubernetes cluster into a place those recipes can run.
+          </p>
+        </div>
       </div>
-      <div class="term" style="max-width: 880px;">
+
+      <div class="grid-3">
+        {repos.map((r) => (
+          <a class="card" href={r.href} target="_blank" rel="noopener" style="text-decoration:none; color:inherit;">
+            <div class="card-icon">{r.tag[0]}</div>
+            <div style="font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--ink-5); margin-bottom: 0.35rem;">{r.tag}</div>
+            <h3>{r.key}</h3>
+            <p>{r.desc}</p>
+            <p style="margin-top: 0.75rem; color: var(--ink-5); font-size: 0.82rem;">{r.role}</p>
+            <span class="card-link">View repo <span class="arrow">↗</span></span>
+          </a>
+        ))}
+      </div>
+
+      <div class="term mt-6" style="max-width: 940px;">
         <div class="chrome">
           <span class="dots"><span></span><span></span><span></span></span>
-          <span>architecture · plnt platform</span>
+          <span>architecture · top-down</span>
         </div>
         <div class="body">
-<pre style="font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6; color: var(--ink-2); margin: 0;">                    plnt CLI · Python API
-                             │
-                             ▼
-             ┌─────────────────────────────────┐
-             │  InferenceModel  (K8s CRD)      │
-             │  kubectl apply -f llama-70b.yaml│
-             └───────────────┬─────────────────┘
-                             │  watch(create|update|delete)
-                             ▼
-             ┌─────────────────────────────────┐
-             │  plnt operator  (Python · kopf) │
-             └───────────────┬─────────────────┘
-                             │  start_workflow
-                             ▼
-    ┌──────────────────────────────────────────────────┐
-    │  Temporal · DeployModelWorkflow                  │
-    │                                                  │
-    │  validate → pull → helm_install → smoke → promote│
-    │            │       │              │              │
-    │            └───────┴──────────────┴──▶ rollback  │
-    └───────────────────────┬──────────────────────────┘
-                            │  helm install / rollback
-                            ▼
-       ┌────────┬────────┬─────────┬─────────┬─────────┐
-       │  vLLM  │  TGI   │ TRT-LLM │ SGLang  │ router  │
-       │ chart  │ chart  │  chart  │ chart   │ (envoy) │
-       └────────┴────────┴─────────┴─────────┴─────────┘
-                            │
-                            ▼
-             ┌─────────────────────────────────┐
-             │  plnt-cloud  (bookings product) │
-             │  consumes /v1/chat/completions  │
-             └─────────────────────────────────┘</pre>
+<pre style="font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.65; color: var(--ink-3); margin: 0;">    ┌────────────────────────────────────┐
+    │  plnt-cloud   (end-user SaaS)   │  reviews · posts · bookings
+    └───────────────────┬────────────────┘
+                        │  invokes
+                        ▼
+    ┌────────────────────────────────────┐
+    │  microagents  (workflow registry)  │  pluggable recipes on S3
+    │  review-responder · post-generator │
+    │  booking-triage  · trend-monitor   │
+    └───────────────────┬────────────────┘
+                        │  pulls spec
+                        ▼
+    ┌────────────────────────────────────┐
+    │  plnt  (orchestration runtime)     │  ← this repo
+    │  WorkflowRun CRD · Temporal saga   │
+    │  Helm install · canary · rollback  │
+    └───────────────────┬────────────────┘
+                        │  helm install
+                        ▼
+    ┌────────────────────────────────────┐
+    │  Kubernetes GPU backends           │  kind · GKE · EKS · on-prem
+    │  scheduler · nvidia.com/gpu        │
+    └────────────────────────────────────┘</pre>
         </div>
       </div>
     </div>
   </section>
 
-  <section class="section">
+  <section class="section cream">
     <div class="container">
       <div class="sechead">
-        <div class="count">02 <span class="of">/ 06</span> — HOW</div>
-        <p class="lead-text">
-          Three steps. No custom control plane. No hand-rolled deploy scripts.
-          The Kubernetes primitives do the work.
-        </p>
-      </div>
-      <div class="steps-list">
-        <div class="li">
-          <div class="n">01</div>
-          <div class="body">
-            <strong>Declare</strong>
-            <p>Write an <code>InferenceModel</code> resource: model name, runtime (<code>vllm</code>/<code>tgi</code>/<code>trt-llm</code>/<code>sglang</code>), GPU class, replicas, canary budget. <code>kubectl apply</code>.</p>
-          </div>
-        </div>
-        <div class="li">
-          <div class="n">02</div>
-          <div class="body">
-            <strong>Reconcile</strong>
-            <p>The plnt operator picks up the resource and starts a Temporal <code>DeployModelWorkflow</code>. The workflow is durable — a restart resumes from the last completed step.</p>
-          </div>
-        </div>
-        <div class="li">
-          <div class="n">03</div>
-          <div class="body">
-            <strong>Serve</strong>
-            <p>Once the canary passes smoke tests and gets promoted, the model is reachable at <code>&lt;name&gt;.plnt.svc/v1/chat/completions</code>. OpenAI-shape API, streaming via SSE.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section cream" style="padding-top: clamp(6rem, 12vw, 10rem); padding-bottom: clamp(6rem, 12vw, 10rem);">
-    <div class="container">
-      <div style="display: grid; grid-template-columns: 1fr; gap: 3rem; align-items: end;">
-        <div class="display-hero">
-          THE PLATFORM<br />LAYER FOR<br />MULTI-MODEL<br />INFERENCE.
-        </div>
-        <div style="display: grid; grid-template-columns: 1fr auto; gap: 2rem; align-items: end;">
-          <p style="max-width: 42ch; font-size: 1.05rem; color: var(--cream-ink-2); line-height: 1.55; margin: 0;">
-            Built on primitives platform teams already trust — Helm, Kubernetes, Temporal.
-            No proprietary control plane. No cloud lock-in. Same YAML runs on
-            <code>kind</code>, GKE, EKS, on-prem.
+        <div class="count">02 <span class="of">/ 05</span> — WHAT PLNT DOES</div>
+        <div>
+          <p class="lead-text">
+            <strong>Six primitives.</strong> Enough to turn a workflow spec into
+            a running service on a GPU cluster, without hand-rolled scripts.
           </p>
-          <div class="flex gap wrap">
-            <span class="chip">vLLM</span>
-            <span class="chip">TGI</span>
-            <span class="chip">TRT-LLM</span>
-            <span class="chip">SGLang</span>
-          </div>
         </div>
       </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="sechead">
-        <div class="count">03 <span class="of">/ 06</span> — RUNTIMES</div>
-        <p class="lead-text">
-          Four inference backends, one control API.
-          Each ships as a Helm chart; each speaks OpenAI wire format at the pod boundary.
-        </p>
-      </div>
-      <div class="rows">
-        {runtimes.map((r) => (
-          <div class="r">
-            <div class="k">{r.k}</div>
-            <p class="v" set:html={r.v} />
+      <div class="grid-3">
+        {features.map((f) => (
+          <div class="card">
+            <div class="card-icon">{f.icon}</div>
+            <h3>{f.title}</h3>
+            <p>{f.body}</p>
           </div>
         ))}
       </div>
@@ -211,14 +212,16 @@ const choices = [
   <section class="section">
     <div class="container">
       <div class="sechead">
-        <div class="count">04 <span class="of">/ 06</span> — SAGA</div>
-        <p class="lead-text">
-          Every deploy is five steps of a Temporal workflow.
-          Any step failing triggers compensation. Retries are per-activity with budgets — not per hop.
-        </p>
+        <div class="count">03 <span class="of">/ 05</span> — HOW</div>
+        <div>
+          <p class="lead-text">
+            Three steps. No control plane to run. No deploy scripts to maintain.
+            The Kubernetes and Temporal primitives do the work.
+          </p>
+        </div>
       </div>
       <div class="steps-list">
-        {sagaSteps.map((s) => (
+        {steps.map((s) => (
           <div class="li">
             <div class="n">{s.n}</div>
             <div class="body">
@@ -231,55 +234,84 @@ const choices = [
     </div>
   </section>
 
-  <section class="section">
+  <section class="section cream">
     <div class="container">
       <div class="sechead">
-        <div class="count">05 <span class="of">/ 06</span> — CHOICES</div>
-        <p class="lead-text">
-          Six decisions that shape the platform. Each is a hill the project will die on.
-        </p>
+        <div class="count">04 <span class="of">/ 05</span> — RUN ONE</div>
+        <div>
+          <p class="lead-text">
+            One CRD. One Helm install. One <code>curl</code>.
+          </p>
+        </div>
       </div>
-      <div class="rows">
-        {choices.map((c) => (
-          <div class="r">
-            <div class="k">{c.k}</div>
-            <p class="v" set:html={c.v} />
+      <div class="grid-2">
+        <div class="term">
+          <div class="chrome">
+            <span class="dots"><span></span><span></span><span></span></span>
+            <span>examples/review-responder.yaml</span>
           </div>
-        ))}
+          <div class="body">
+<pre style="margin:0; color: var(--ink-2);">apiVersion: plnt.work/v1
+kind: WorkflowRun
+metadata:
+  name: review-responder
+spec:
+  workflow:
+    ref: review-responder@1.2.0
+    registry: s3://microagents
+  backend:
+    cluster: gpu-cluster-01
+    gpuClass: nvidia.com/h100
+    gpuCount: 2
+  replicas:
+    min: 1
+    max: 4
+  canary:
+    trafficPercent: 5
+    smokeTest:
+      invocations: 10
+      p95BudgetMs: 2500</pre>
+          </div>
+        </div>
+
+        <div class="term">
+          <div class="chrome">
+            <span class="dots"><span></span><span></span><span></span></span>
+            <span>plnt · deploy from kubectl</span>
+          </div>
+          <div class="body">
+            <div><span class="cmt"># apply the WorkflowRun resource</span></div>
+            <div><span class="prompt">$</span> kubectl apply -f review-responder.yaml</div>
+            <div style="margin-top: 0.75rem;"><span class="cmt"># plnt operator picks it up and starts the saga</span></div>
+            <div><span class="prompt">$</span> plnt logs review-responder --follow</div>
+            <div style="margin-top: 0.75rem;"><span class="cmt"># invoke it</span></div>
+            <div><span class="prompt">$</span> curl -s https://review-responder.plnt.svc/invoke \</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;-H <span class="str">"content-type: application/json"</span> \</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;-d <span class="str">{`'{"review":{"rating":2,"text":"..."}}'`}</span></div>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="section" style="padding-top: clamp(5rem, 9vw, 8rem); padding-bottom: clamp(5rem, 9vw, 8rem);">
+  <section class="section" style="padding-top: clamp(4rem, 8vw, 6rem); padding-bottom: clamp(4rem, 8vw, 6rem);">
     <div class="container">
       <div class="sechead">
-        <div class="count">06 <span class="of">/ 06</span> — INSTALL</div>
-        <p class="lead-text">
-          One chart. One CRD. One <code>curl</code>.
-        </p>
-      </div>
-      <div class="term" style="max-width: 780px;">
-        <div class="chrome">
-          <span class="dots"><span></span><span></span><span></span></span>
-          <span>install · plnt on kind</span>
-        </div>
-        <div class="body">
-          <div><span class="cmt"># local kind cluster</span></div>
-          <div><span class="prompt">$</span> kind create cluster --name plnt</div>
-          <div style="margin-top: 0.75rem;"><span class="cmt"># install the operator + playground API</span></div>
-          <div><span class="prompt">$</span> helm install plnt oci://ghcr.io/devdattatalele/charts/plnt --version 0.1.0</div>
-          <div style="margin-top: 0.75rem;"><span class="cmt"># deploy a model</span></div>
-          <div><span class="prompt">$</span> kubectl apply -f examples/llama-3-70b-instruct.yaml</div>
-          <div style="margin-top: 0.75rem;"><span class="cmt"># chat</span></div>
-          <div><span class="prompt">$</span> curl -s https://play.plnt.work/v1/chat/completions \</div>
-          <div>&nbsp;&nbsp;&nbsp;&nbsp;-H <span class="str">"content-type: application/json"</span> \</div>
-          <div>&nbsp;&nbsp;&nbsp;&nbsp;-d <span class="str">{`'{"model":"llama-3.1-70b-instruct","messages":[{"role":"user","content":"hi"}]}'`}</span></div>
+        <div class="count">05 <span class="of">/ 05</span> — GET STARTED</div>
+        <div>
+          <p class="lead-text">
+            The playground runs live. The repos are open.
+            The docs walk through a 60-second kind demo.
+          </p>
         </div>
       </div>
-      <div class="flex gap wrap mt-5">
-        <a class="btn primary" href="https://play.plnt.work" target="_blank" rel="noopener">Open playground <span class="arrow">→</span></a>
+      <div class="flex gap wrap">
+        <a class="btn primary" href="https://play.plnt.work" target="_blank" rel="noopener">
+          Open playground <span class="arrow">→</span>
+        </a>
         <a class="btn" href="/docs/">Read the docs</a>
-        <a class="btn" href="https://github.com/devdattatalele/plnt" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn" href="/architecture">Architecture</a>
+        <a class="btn ghost" href="https://github.com/plnt-work/plnt" target="_blank" rel="noopener">GitHub ↗</a>
       </div>
     </div>
   </section>

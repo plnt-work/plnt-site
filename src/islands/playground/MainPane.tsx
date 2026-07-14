@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { ChatMessage, ConnectionState, DeployedModel } from './types';
-import { RUNTIME_LABEL } from './models';
+import type { ChatMessage, ConnectionState, Workflow, WorkflowBackend, StepRun } from './types';
+import { CATEGORY_LABEL } from './models';
 import ChatPanel from './ChatPanel';
 
-type Tab = 'briefing' | 'chat' | 'metrics' | 'manifest' | 'logs';
+type Tab = 'briefing' | 'invoke' | 'orchestration' | 'manifest' | 'logs';
 
 interface Props {
-  model: DeployedModel;
+  workflow: Workflow;
+  backend: WorkflowBackend;
   messages: ChatMessage[];
   setMessages: (m: ChatMessage[]) => void;
   connection: ConnectionState;
@@ -17,8 +18,8 @@ interface Props {
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'briefing', label: 'Briefing' },
-  { id: 'chat', label: 'Chat' },
-  { id: 'metrics', label: 'Metrics' },
+  { id: 'invoke', label: 'Invoke' },
+  { id: 'orchestration', label: 'Orchestration' },
   { id: 'manifest', label: 'Manifest' },
   { id: 'logs', label: 'Logs' },
 ];
@@ -31,7 +32,8 @@ function fmtElapsed(ms: number): string {
 }
 
 export default function MainPane({
-  model,
+  workflow,
+  backend,
   messages,
   setMessages,
   connection,
@@ -39,13 +41,18 @@ export default function MainPane({
   sessionStartedAt,
   onRestart,
 }: Props) {
-  const [tab, setTab] = useState<Tab>('chat');
+  const [tab, setTab] = useState<Tab>('invoke');
   const [now, setNow] = useState(Date.now());
+  const [stepRuns, setStepRuns] = useState<StepRun[]>([]);
 
   useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), 1000);
+    const t = setInterval(() => setNow(Date.now()), 500);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => {
+    setStepRuns([]);
+  }, [workflow.id, backend.id]);
 
   const userMessages = messages.filter((m) => m.role === 'user').length;
 
@@ -53,11 +60,11 @@ export default function MainPane({
     <section class="pg-main">
       <header class="pg-header">
         <div>
-          <h1 class="pg-title">{model.name}</h1>
-          <p class="pg-header-desc">{model.description}</p>
+          <h1 class="pg-title">{workflow.name}<span class="pg-title-ver">@{workflow.version}</span></h1>
+          <p class="pg-header-desc">{workflow.description}</p>
         </div>
         <div class="pg-header-right">
-          <span class="pg-stat">{userMessages} msg</span>
+          <span class="pg-stat">{userMessages} invocation{userMessages === 1 ? '' : 's'}</span>
           <span class="pg-stat">{fmtElapsed(now - sessionStartedAt)}</span>
           <button class="pg-restart" onClick={onRestart}>Restart</button>
         </div>
@@ -77,75 +84,121 @@ export default function MainPane({
       </nav>
 
       <div class="pg-body">
-        {tab === 'briefing' && <BriefingTab model={model} />}
-        {tab === 'chat' && (
+        {tab === 'briefing' && <BriefingTab workflow={workflow} backend={backend} />}
+        {tab === 'invoke' && (
           <ChatPanel
-            model={model}
+            workflow={workflow}
+            backend={backend}
             messages={messages}
             setMessages={setMessages}
             connection={connection}
             setConnection={setConnection}
+            onInvoke={setStepRuns}
           />
         )}
-        {tab === 'metrics' && <MetricsTab />}
-        {tab === 'manifest' && <ManifestTab model={model} />}
-        {tab === 'logs' && <LogsTab />}
+        {tab === 'orchestration' && <OrchestrationTab workflow={workflow} backend={backend} stepRuns={stepRuns} />}
+        {tab === 'manifest' && <ManifestTab workflow={workflow} />}
+        {tab === 'logs' && <LogsTab workflow={workflow} />}
       </div>
     </section>
   );
 }
 
-function BriefingTab({ model }: { model: DeployedModel }) {
+function BriefingTab({ workflow, backend }: { workflow: Workflow; backend: WorkflowBackend }) {
   return (
     <div class="pg-prose">
-      <p>{model.briefing}</p>
+      <p>{workflow.briefing}</p>
       <dl class="pg-brief-list">
-        <div><dt>Runtime</dt><dd>{RUNTIME_LABEL[model.runtime]}</dd></div>
-        <div><dt>Chart</dt><dd>{model.chartVersion}</dd></div>
-        <div><dt>Parameters</dt><dd>{model.params}</dd></div>
-        <div><dt>Context</dt><dd>{model.contextLength}</dd></div>
-        <div><dt>License</dt><dd>{model.license}</dd></div>
-        <div><dt>GPU</dt><dd>{model.gpu}</dd></div>
-        <div><dt>Replicas</dt><dd>{model.replicas}</dd></div>
-        <div><dt>Endpoint</dt><dd class="pg-mono">{model.endpoint}</dd></div>
+        <div><dt>Category</dt><dd>{CATEGORY_LABEL[workflow.category]}</dd></div>
+        <div><dt>Version</dt><dd>{workflow.version}</dd></div>
+        <div><dt>Steps</dt><dd>{workflow.steps.length}</dd></div>
+        <div><dt>Backend</dt><dd>{backend.label} <span class="pg-dim">({backend.cluster})</span></dd></div>
+        <div><dt>GPU</dt><dd>{workflow.requirements.gpuCount}× {workflow.requirements.gpuClass.replace('nvidia.com/', '')}</dd></div>
+        <div><dt>Memory</dt><dd>{workflow.requirements.memoryGiB} GiB</dd></div>
+        <div><dt>Runtime image</dt><dd class="pg-mono">{workflow.runtime.image}</dd></div>
+        <div><dt>Endpoint</dt><dd class="pg-mono">{workflow.endpoint}</dd></div>
       </dl>
     </div>
   );
 }
 
-function MetricsTab() {
+function OrchestrationTab({ workflow, backend, stepRuns }: { workflow: Workflow; backend: WorkflowBackend; stepRuns: StepRun[] }) {
+  const statusFor = (id: string) => stepRuns.find((r) => r.stepId === id)?.status ?? 'pending';
+  const totalMs = workflow.steps.reduce((a, s) => a + s.approxMs, 0);
+
   return (
-    <div class="pg-prose">
-      <p>
-        No live metrics scrape configured for this instance. A production plnt
-        deployment exposes <code>/metrics</code> in Prometheus format — TTFT p50/p95/p99,
-        TPOT, tokens/sec/GPU, KV cache utilization, and per-runtime batch fill.
-      </p>
-      <p class="pg-dim">Wire a Grafana datasource to plnt-prometheus.svc to render panels here.</p>
+    <div class="pg-orch">
+      <div class="pg-orch-header">
+        <div>
+          <div class="pg-label">Step DAG</div>
+          <p class="pg-orch-sub">
+            {workflow.steps.length} steps · ~{totalMs}ms end-to-end on {backend.gpuAvailable > 0 ? `${workflow.requirements.gpuCount}× ${workflow.requirements.gpuClass.replace('nvidia.com/', '')}` : 'CPU stub (kind)'}.
+            Runs live during an invocation.
+          </p>
+        </div>
+        <span class={`pg-backend-badge pg-backend-${backend.status}`}>{backend.label} · {backend.status}</span>
+      </div>
+
+      <div class="pg-steps">
+        {workflow.steps.map((s, idx) => {
+          const status = statusFor(s.id);
+          return (
+            <div class={`pg-step pg-step-${status}`}>
+              <div class="pg-step-idx">{String(idx + 1).padStart(2, '0')}</div>
+              <div class="pg-step-body">
+                <div class="pg-step-title">{s.label}</div>
+                <div class="pg-step-meta">
+                  <span class="pg-mono">{s.tool}</span>
+                  {s.deps.length > 0 && (
+                    <span class="pg-step-deps">deps: {s.deps.join(', ')}</span>
+                  )}
+                  <span class="pg-step-time">~{s.approxMs}ms</span>
+                </div>
+              </div>
+              <div class={`pg-step-status pg-step-status-${status}`}>{status}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div class="pg-orch-footer">
+        <div class="pg-orch-metric">
+          <div class="pg-label">Chart</div>
+          <div class="pg-mono">{workflow.chartVersion}</div>
+        </div>
+        <div class="pg-orch-metric">
+          <div class="pg-label">Backend</div>
+          <div class="pg-mono">{backend.cluster}</div>
+        </div>
+        <div class="pg-orch-metric">
+          <div class="pg-label">Run ID</div>
+          <div class="pg-mono">{workflow.workflowRun}</div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function ManifestTab({ model }: { model: DeployedModel }) {
+function ManifestTab({ workflow }: { workflow: Workflow }) {
   return (
     <div class="pg-prose">
-      <div class="pg-label">InferenceModel</div>
-      <pre class="pg-code">{model.manifest}</pre>
-      <div class="pg-label pg-mt">Helm values (excerpt)</div>
-      <pre class="pg-code">{model.values}</pre>
+      <div class="pg-label">WorkflowRun (plnt CRD)</div>
+      <pre class="pg-code">{workflow.crd}</pre>
+      <div class="pg-label pg-mt">Workflow spec (microagents)</div>
+      <pre class="pg-code">{workflow.spec}</pre>
     </div>
   );
 }
 
-function LogsTab() {
+function LogsTab({ workflow }: { workflow: Workflow }) {
   return (
     <div class="pg-prose">
       <p>
-        No workflow runs recorded. In a live deployment this streams events from
-        the Temporal deploy saga
-        (<code>validate → pull_weights → helm_install → smoke → promote</code>)
-        plus per-request logs from the runtime.
+        No workflow runs recorded yet for this browser session. In a live deployment
+        this streams events from the Temporal orchestration saga (<code>pull → resolve → helm → smoke → promote</code>)
+        plus per-invocation step traces from the runner pod.
       </p>
+      <p class="pg-dim">Tail with <code>plnt logs {workflow.name} --follow</code>.</p>
     </div>
   );
 }

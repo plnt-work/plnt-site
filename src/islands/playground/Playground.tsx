@@ -1,27 +1,28 @@
 import { useEffect, useState } from 'preact/hooks';
-import type { ChatMessage, ConnectionState, Quantization } from './types';
-import { MODELS, RUNTIME_LABEL } from './models';
+import type { ChatMessage, ConnectionState } from './types';
+import { WORKFLOWS, BACKENDS } from './models';
 import { fetchLiveModels } from './api';
 import Sidebar from './Sidebar';
 import MainPane from './MainPane';
 
-function welcomeMessage(name: string, runtime: string): ChatMessage {
+function welcomeMessage(name: string, backend: string): ChatMessage {
   return {
     role: 'system',
     ts: Date.now(),
     content:
-      `Welcome. You're connected to ${name} on ${runtime}. ` +
-      `This endpoint is OpenAI-compatible — /v1/chat/completions with streaming. ` +
-      `Ask anything; the model has no persistent memory across sessions in this playground.`,
+      `Connected. Workflow "${name}" is deployed on ${backend}. ` +
+      `Send an invocation payload below — plnt orchestrates the step DAG, then returns the final output. ` +
+      `Watch the Orchestration tab for real-time step timing.`,
   };
 }
 
 export default function Playground() {
-  const [modelId, setModelId] = useState(MODELS[0].id);
-  const model = MODELS.find((m) => m.id === modelId) ?? MODELS[0];
-  const [variant, setVariant] = useState<Quantization>(model.defaultVariant);
+  const [workflowId, setWorkflowId] = useState(WORKFLOWS[0].id);
+  const workflow = WORKFLOWS.find((w) => w.id === workflowId) ?? WORKFLOWS[0];
+  const [backendId, setBackendId] = useState(workflow.defaultBackend);
+  const backend = BACKENDS.find((b) => b.id === backendId) ?? BACKENDS[0];
   const [messages, setMessages] = useState<ChatMessage[]>([
-    welcomeMessage(model.name, RUNTIME_LABEL[model.runtime]),
+    welcomeMessage(workflow.name, backend.label),
   ]);
   const [connection, setConnection] = useState<ConnectionState>('checking');
   const [sessionStartedAt, setSessionStartedAt] = useState<number>(Date.now());
@@ -38,30 +39,39 @@ export default function Playground() {
     };
   }, []);
 
-  function selectModel(id: string) {
-    const next = MODELS.find((m) => m.id === id) ?? MODELS[0];
-    setModelId(next.id);
-    setVariant(next.defaultVariant);
-    setMessages([welcomeMessage(next.name, RUNTIME_LABEL[next.runtime])]);
+  function selectWorkflow(id: string) {
+    const next = WORKFLOWS.find((w) => w.id === id) ?? WORKFLOWS[0];
+    setWorkflowId(next.id);
+    setBackendId(next.defaultBackend);
+    const nextBackend = BACKENDS.find((b) => b.id === next.defaultBackend) ?? BACKENDS[0];
+    setMessages([welcomeMessage(next.name, nextBackend.label)]);
+    setSessionStartedAt(Date.now());
+  }
+
+  function selectBackend(id: string) {
+    setBackendId(id);
+    const nextBackend = BACKENDS.find((b) => b.id === id) ?? BACKENDS[0];
+    setMessages([welcomeMessage(workflow.name, nextBackend.label)]);
     setSessionStartedAt(Date.now());
   }
 
   function restart() {
-    setMessages([welcomeMessage(model.name, RUNTIME_LABEL[model.runtime])]);
+    setMessages([welcomeMessage(workflow.name, backend.label)]);
     setSessionStartedAt(Date.now());
   }
 
   return (
     <div class="pg-shell">
       <Sidebar
-        model={model}
-        variant={variant}
-        onSelectModel={selectModel}
-        onSelectVariant={setVariant}
+        workflow={workflow}
+        backend={backend}
+        onSelectWorkflow={selectWorkflow}
+        onSelectBackend={selectBackend}
         onStart={restart}
       />
       <MainPane
-        model={model}
+        workflow={workflow}
+        backend={backend}
         messages={messages}
         setMessages={setMessages}
         connection={connection}

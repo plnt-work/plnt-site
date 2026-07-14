@@ -1,32 +1,48 @@
-export type Runtime = 'vllm' | 'tgi' | 'trt-llm' | 'sglang';
+export type StepStatus = 'pending' | 'running' | 'done' | 'failed';
 
-export type Quantization = 'FP16' | 'FP8' | 'AWQ-4bit' | 'GPTQ-4bit';
-
-export interface ModelVariant {
-  quant: Quantization;
-  sizeGiB: number;
+export interface WorkflowStep {
+  id: string;
+  label: string;
+  tool: string;
+  deps: string[];
+  approxMs: number;
 }
 
-export interface DeployedModel {
+export interface WorkflowBackend {
+  id: string;
+  label: string;
+  cluster: string;
+  region: string;
+  gpuClass: string;
+  gpuAvailable: number;
+  status: 'ready' | 'busy' | 'kind';
+}
+
+export interface Workflow {
   id: string;
   name: string;
-  runtime: Runtime;
-  runtimeChart: string;
-  params: string;
-  contextLength: string;
-  license: string;
-  gpu: string;
-  replicas: string;
-  variants: ModelVariant[];
-  defaultVariant: Quantization;
+  version: string;
+  category: 'reviews' | 'content' | 'bookings' | 'analytics';
   description: string;
   briefing: string;
-  deployedAgo: string;
+  steps: WorkflowStep[];
+  runtime: {
+    image: string;
+    entrypoint: string;
+  };
+  requirements: {
+    gpuClass: string;
+    gpuCount: number;
+    memoryGiB: number;
+  };
+  compatibleBackends: string[];
+  defaultBackend: string;
   chartVersion: string;
   workflowRun: string;
   endpoint: string;
-  manifest: string;
-  values: string;
+  spec: string;
+  crd: string;
+  samplePrompt: string;
 }
 
 export interface ChatMessage {
@@ -36,3 +52,10 @@ export interface ChatMessage {
 }
 
 export type ConnectionState = 'live' | 'stub' | 'checking';
+
+export interface StepRun {
+  stepId: string;
+  status: StepStatus;
+  startedAt?: number;
+  finishedAt?: number;
+}

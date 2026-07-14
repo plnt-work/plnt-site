@@ -1,19 +1,19 @@
 ---
 title: Quickstart
-description: pip install → plnt playground up → first curl. Sixty seconds.
+description: pip install → plnt playground up → first workflow invocation. Sixty seconds.
 ---
 
-Boot the plnt playground locally in under 60 seconds. No cluster, no GPU, no signup.
+Boot plnt locally in under 60 seconds. No cluster, no GPU, no signup.
 
 ## 1. Install
 
 ```bash
-git clone https://github.com/devdattatalele/plnt && cd plnt
+git clone https://github.com/plnt-work/plnt && cd plnt
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-The `.[dev]` extra pulls pytest and ruff. Skip it if you're just running, not editing.
+The `.[dev]` extra pulls pytest and ruff. Skip it if you're just running.
 
 ## 2. Start the playground
 
@@ -25,64 +25,72 @@ You'll see:
 
 ```
 plnt playground on http://127.0.0.1:8080 — mock backend, ctrl+C to stop.
-  models:  http://127.0.0.1:8080/v1/models
-  chat:    POST http://127.0.0.1:8080/v1/chat/completions
-  docs:    http://127.0.0.1:8080/docs
+  workflows:  http://127.0.0.1:8080/v1/workflows
+  invoke:     POST http://127.0.0.1:8080/v1/workflows/<id>/invoke
+  docs:       http://127.0.0.1:8080/docs
 ```
 
-The default backend is a `mock` that echoes your prompt with fake streaming — enough to verify the wire is intact. Real vLLM comes later ([Local dev](/docs/getting-started/local-dev/)).
+The default backend is a `mock` that runs each workflow step against a stub
+LLM — enough to verify the wire is intact. Real GPU backends come later
+([Local dev](/docs/getting-started/local-dev/)).
 
-## 3. Talk to it
+## 3. Invoke a workflow
 
 In a second terminal:
 
 ```bash
-# list models
-plnt playground models
+# list registered workflows
+plnt list
 
-# one-shot chat, streams to stdout
-plnt playground chat plnt-mock-7b "hello, plnt"
+# one-shot invocation, streams step events to stdout
+plnt run review-responder --input '{"review":{"rating":2,"text":"Waited 40 min..."}}'
 
-# same but non-streaming
-plnt playground chat plnt-mock-7b "hello" --no-stream
+# tail the Temporal orchestration for a running workflow
+plnt logs review-responder --follow
 
-# copy-paste curl examples for anywhere else
+# copy-paste curl examples
 plnt playground curl
 ```
 
 Or directly with `curl`:
 
 ```bash
-curl -s http://127.0.0.1:8080/v1/models | jq
+curl -s http://127.0.0.1:8080/v1/workflows | jq
 
-curl -s http://127.0.0.1:8080/v1/chat/completions \
+curl -s http://127.0.0.1:8080/v1/workflows/review-responder/invoke \
   -H 'content-type: application/json' \
-  -d '{"model":"plnt-mock-7b","messages":[{"role":"user","content":"hi"}]}' \
+  -d '{"input":{"review":{"rating":2,"text":"Waited 40 min..."}}}' \
   | jq
 ```
 
-## 4. Add your own models
+## 4. Add your own workflow spec
 
-Point the API at a config file:
+Point plnt at a workflow spec pulled from any registry (or a local
+directory):
 
 ```bash
-cat > /tmp/models.json <<'EOF'
+cat > /tmp/workflows.json <<'EOF'
 [
-  {"id": "gpt-echo", "backend": "mock", "runtime": "mock"},
-  {"id": "local-vllm",
+  {"id": "review-responder",
+   "ref": "review-responder@1.2.0",
+   "registry": "s3://microagents",
+   "backend": "mock"},
+  {"id": "review-responder-live",
+   "ref": "review-responder@1.2.0",
+   "registry": "s3://microagents",
    "backend": "http",
-   "runtime": "vllm",
    "upstream_url": "http://127.0.0.1:8000"}
 ]
 EOF
 
-PLNT_PLAYGROUND_CONFIG=/tmp/models.json plnt playground up
+PLNT_PLAYGROUND_CONFIG=/tmp/workflows.json plnt playground up
 ```
 
-Now `plnt playground models` shows both entries. Anything with `"backend": "http"` proxies to the URL you gave it — any OpenAI-compatible upstream (real vLLM, TGI, SGLang, llama.cpp) works.
+Anything with `"backend": "http"` proxies to the URL — any workflow runner
+that speaks the plnt `/invoke` contract works.
 
 ## Next
 
-- [Local dev](/docs/getting-started/local-dev/) — wire the site's chat UI to your local API.
-- [Kind demo](/docs/operations/kind-demo/) — the full K8s + Temporal flow, on your laptop.
-- [Architecture](/docs/concepts/architecture/) — the layered platform view.
+- [Local dev](/docs/getting-started/local-dev/) — wire the site's UI to your local API.
+- [Kind demo](/docs/operations/kind-demo/) — the full K8s + Temporal flow on your laptop.
+- [Architecture](/docs/concepts/architecture/) — the 4-layer stack view.

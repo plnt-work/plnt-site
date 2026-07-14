@@ -54,7 +54,7 @@ class DeployModelWorkflow:
 
 ### 1. `validate_manifest`
 
-- Schema-validates the InferenceModel spec.
+- Schema-validates the WorkflowRun spec.
 - Confirms `storageUri` is reachable.
 - Confirms the image tag is pullable.
 - Confirms `gpuClass` exists on the cluster's node pool.
@@ -124,7 +124,7 @@ temporal workflow show \
 
 ## Source
 
-- Workflow: [`plnt/workflows/deploy_model.py`](https://github.com/devdattatalele/plnt/blob/main/plnt/workflows/deploy_model.py)
-- Activities: [`plnt/workflows/activities.py`](https://github.com/devdattatalele/plnt/blob/main/plnt/workflows/activities.py)
-- Worker: [`plnt/workflows/worker.py`](https://github.com/devdattatalele/plnt/blob/main/plnt/workflows/worker.py)
-- Operator: [`plnt/operators/inferencemodel_controller.py`](https://github.com/devdattatalele/plnt/blob/main/plnt/operators/inferencemodel_controller.py)
+- Workflow: [`plnt/workflows/deploy_model.py`](https://github.com/plnt-work/plnt/blob/main/plnt/workflows/deploy_model.py)
+- Activities: [`plnt/workflows/activities.py`](https://github.com/plnt-work/plnt/blob/main/plnt/workflows/activities.py)
+- Worker: [`plnt/workflows/worker.py`](https://github.com/plnt-work/plnt/blob/main/plnt/workflows/worker.py)
+- Operator: [`plnt/operators/workflowrun_controller.py`](https://github.com/plnt-work/plnt/blob/main/plnt/operators/workflowrun_controller.py)

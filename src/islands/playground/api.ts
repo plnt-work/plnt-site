@@ -1,4 +1,4 @@
-import type { ChatMessage, DeployedModel } from './types';
+import type { ChatMessage, Workflow } from './types';
 
 const ENV_ENDPOINT =
   (typeof import.meta !== 'undefined' && (import.meta as any).env?.PUBLIC_PLNT_ENDPOINT) || '';
@@ -9,25 +9,24 @@ const DEFAULT_ENDPOINT = 'https://playground.plnt.work';
 const ENDPOINT = ENV_ENDPOINT || DEFAULT_ENDPOINT;
 
 const STUB_REPLIES: Record<string, string[]> = {
-  vllm: [
-    'Running on vLLM — paged attention, prefix cache active. This is a stub reply; wire PUBLIC_PLNT_ENDPOINT to a live vllm-runtime deployment to see the real model.',
-    'Stub mode. vLLM would stream tokens here via /v1/chat/completions with stream=true. First-token latency on a warm 2×H100 for a 70B model typically sits around 150–200ms.',
+  'review-responder': [
+    'Draft reply: "Thanks for the honest feedback — a 40-minute wait even with a reservation isn\'t the standard we hold ourselves to. I\'ve shared this with our floor manager, and we\'d love the chance to make it right. If you\'re open to it, please reach out directly and we\'ll set aside a table with a manager greeting for your next visit."\n\n(stub reply — wire PUBLIC_PLNT_ENDPOINT to a live backend to see the real model.)',
   ],
-  tgi: [
-    'Running on TGI — continuous batching, flash attention 2. Stub reply. Point PUBLIC_PLNT_ENDPOINT at the tgi-runtime service to talk to the real model.',
+  'post-generator': [
+    'Draft post: "☕ New this Monday — the Maple Cortado is landing on the menu. Roasted, pulled, and topped with a whisper of maple. First 20 orders on Monday morning get it on the house. See you at 7am."\n\n(stub reply — configure PUBLIC_PLNT_ENDPOINT to hit a live model.)',
   ],
-  'trt-llm': [
-    'Running on TRT-LLM — precompiled Triton engine, TP=4. Stub reply. Wire a live endpoint to exercise the real inference path.',
+  'booking-triage': [
+    'Draft reply: "Hi! Absolutely — we can host 5 with gluten-free options. Friday 7pm is booked but I have 7:15pm or 8:30pm open. Saturday I can offer 6:45pm, 7:30pm, or 8:45pm. Which works best? I\'ll flag the kitchen for GF prep."\n\n(stub reply — configure PUBLIC_PLNT_ENDPOINT to hit a live model.)',
   ],
-  sglang: [
-    'Running on SGLang — RadixAttention prefix caching. Stub reply. Point the endpoint env var at the sglang-runtime service to go live.',
+  'competitor-monitor': [
+    'Notable diffs vs baseline:\n• +11 reviews in the last cycle (0.15/day, up from 0.09) — check for a recent event or press mention\n• Rating slid 4.6★ → 4.5★ across new reviews — sentiment is worth sampling\n• 3-week posting gap — content-cadence weakness you could exploit\n\n(stub reply — wire the endpoint to a live model to run the real extractor.)',
   ],
 };
 
 let stubIndex = 0;
 
-function stubReply(model: DeployedModel): string {
-  const pool = STUB_REPLIES[model.runtime] || ['Stub reply. No live endpoint configured.'];
+function stubReply(workflow: Workflow): string {
+  const pool = STUB_REPLIES[workflow.id] || ['Stub reply. No live endpoint configured.'];
   const r = pool[stubIndex % pool.length];
   stubIndex += 1;
   return r;
@@ -44,13 +43,13 @@ export interface ChatResult {
 }
 
 export async function sendChat(
-  model: DeployedModel,
+  workflow: Workflow,
   history: ChatMessage[],
 ): Promise<ChatResult> {
   const start = performance.now();
   const url = `${ENDPOINT.replace(/\/$/, '')}/v1/chat/completions`;
   const body = {
-    model: model.id,
+    model: workflow.id,
     messages: history
       .filter((m) => m.role !== 'system' || m.content)
       .map(({ role, content }) => ({ role, content })),
@@ -73,7 +72,7 @@ export async function sendChat(
   } catch {
     // Backend unreachable or errored — degrade to a canned stub reply so the UI keeps working.
     await new Promise((res) => setTimeout(res, 250));
-    return { reply: stubReply(model), live: false, latencyMs: performance.now() - start };
+    return { reply: stubReply(workflow), live: false, latencyMs: performance.now() - start };
   }
 }
 

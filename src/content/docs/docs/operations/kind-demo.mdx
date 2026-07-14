@@ -3,7 +3,7 @@ title: Kind demo
 description: 60-second local-laptop demo of the full deploy flow. No cloud, no GPU.
 ---
 
-Deploys the plnt operator + Temporal + playground API on a local `kind` cluster, then applies an `InferenceModel` and shows the deploy saga running end-to-end.
+Deploys the plnt operator + Temporal + playground API on a local `kind` cluster, then applies an `WorkflowRun` and shows the deploy saga running end-to-end.
 
 The saga uses a **CPU-stub image** in place of vLLM so the flow works without a real GPU. Frame this honestly in a demo: *"the platform layer is what you're seeing; hardening for GPU workloads is where the next phase goes."*
 
@@ -22,7 +22,7 @@ brew install kind kubectl helm
 kind create cluster --name plnt
 
 # install the CRD + operator + Temporal
-kubectl apply -f plnt/operators/crds/inferencemodel.yaml
+kubectl apply -f plnt/operators/crds/workflowrun.yaml
 kubectl create namespace plnt-system
 helm install temporal temporal/temporal --namespace plnt-system \
   --set server.replicaCount=1 --set cassandra.config.cluster_size=1
@@ -31,7 +31,7 @@ helm install temporal temporal/temporal --namespace plnt-system \
 helm install plnt-playground plnt/charts/playground-api --namespace plnt-system
 
 # start the operator locally (dev mode — in prod this ships as a Deployment)
-python -m kopf run plnt/operators/inferencemodel_controller.py --namespace=default &
+python -m kopf run plnt/operators/workflowrun_controller.py --namespace=default &
 
 # start the Temporal worker
 python -m plnt.workflows.worker &
@@ -47,7 +47,7 @@ Then in three side-by-side terminal panes:
 
 ```bash
 # pane A — the resource going through phases
-kubectl get inferencemodel -w
+kubectl get workflowrun -w
 ```
 
 ```
@@ -66,7 +66,7 @@ kubectl logs -f deployment/plnt-operator -n plnt-system
 ```
 
 ```
-InferenceModel/llama-3.1-70b-instruct created — starting DeployModelWorkflow
+WorkflowRun/llama-3.1-70b-instruct created — starting DeployModelWorkflow
 ```
 
 ```bash
@@ -90,7 +90,7 @@ Response comes back OpenAI-shape. In production the same request hits vLLM / TGI
 ### 4. Rollback story (~15 s)
 
 ```bash
-kubectl delete inferencemodel llama-3.1-70b-instruct
+kubectl delete workflowrun llama-3.1-70b-instruct
 ```
 
 The operator cancels the workflow → the workflow triggers `helm uninstall` via compensation → `kubectl get pods` shows the release being removed.
@@ -105,7 +105,7 @@ The operator cancels the workflow → the workflow triggers `helm uninstall` via
 ## Talking points
 
 1. **"This is the deploy contract."** Show `examples/llama-3.1-70b-instruct.yaml`.
-2. **"This is the operator watching it."** Flash `plnt/operators/inferencemodel_controller.py`.
+2. **"This is the operator watching it."** Flash `plnt/operators/workflowrun_controller.py`.
 3. **"This is the saga that does the work."** Flash `plnt/workflows/deploy_model.py`, point at the 5-step try/except with compensation.
 4. **"This is the runtime chart."** Show `plnt/charts/vllm-runtime/templates/deployment.yaml`, highlight the `nvidia.com/gpu` resource request.
 5. **"Playground is at play.plnt.work."** Open it, chat with a real model.

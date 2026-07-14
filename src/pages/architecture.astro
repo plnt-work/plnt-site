@@ -4,79 +4,80 @@ import LogStream from '../components/LogStream.astro';
 import { Code } from 'astro:components';
 
 const title = 'Architecture — plnt';
-const description = 'Helm chart per runtime · Temporal deploy saga · InferenceModel CRD · Python operator · RuntimeAdapter · canary via Envoy · benchmarking · plnt-cloud as consumer.';
+const description = 'The 4-layer stack. WorkflowRun CRD. Temporal orchestration saga. Helm-based deploy. Multi-GPU backend selection. Canary + rollback.';
 
 const crdSpec = `apiVersion: plnt.work/v1
-kind: InferenceModel
+kind: WorkflowRun
 metadata:
-  name: llama-3.1-70b-instruct
+  name: review-responder
 spec:
-  runtime: vllm                     # vllm | tgi | trt-llm | sglang
-  model:
-    name: meta-llama/Llama-3.1-70B-Instruct
-    storageUri: s3://plnt-models/llama-3.1-70b/fp16
-    quantization: fp16              # fp16 | fp8 | awq-4bit | gptq-4bit
-  resources:
-    gpu: 2
+  workflow:
+    ref: review-responder@1.2.0
+    registry: s3://microagents           # or oci://ghcr.io/...
+    integrityHash: sha256:9a1b...          # optional pin
+  backend:
+    cluster: gpu-cluster-01                # named plnt backend
     gpuClass: nvidia.com/h100
-    memoryGiB: 160
+    gpuCount: 2
+    nodeSelector:
+      pool: agent-workflows
   replicas:
     min: 1
     max: 4
   autoscaling:
-    targetTokensPerSecond: 1500
+    targetInvocationsPerSecond: 25
   canary:
     trafficPercent: 5
     smokeTest:
-      prompts: 10
-      ttftBudgetMs: 250
-      tpotBudgetMs: 40`;
+      invocations: 10
+      p95BudgetMs: 2500
+      errorBudgetPercent: 1`;
 
-const operatorCode = `# plnt/operators/inferencemodel_controller.py
+const operatorCode = `# plnt/operators/workflowrun_controller.py
 import kopf
 from temporalio.client import Client
-from plnt.workflows.deploy_model import DeployModelWorkflow
+from plnt.workflows.orchestrate import OrchestrateWorkflow
 
-@kopf.on.create('plnt.work', 'v1', 'inferencemodels')
+@kopf.on.create('plnt.work', 'v1', 'workflowruns')
 async def on_create(spec, name, namespace, **_):
     client = await Client.connect(TEMPORAL_ADDR)
     await client.start_workflow(
-        DeployModelWorkflow.run,
+        OrchestrateWorkflow.run,
         args=[spec],
-        id=f'deploy-{namespace}-{name}',
-        task_queue='plnt-deploys',
+        id=f'orchestrate-{namespace}-{name}',
+        task_queue='plnt-orchestrate',
     )
 
-@kopf.on.update('plnt.work', 'v1', 'inferencemodels')
+@kopf.on.update('plnt.work', 'v1', 'workflowruns')
 async def on_update(spec, name, namespace, **_):
-    # Any update to the manifest triggers a fresh canary.
+    # Any spec change triggers a fresh canary.
     ...
 
-@kopf.on.delete('plnt.work', 'v1', 'inferencemodels')
+@kopf.on.delete('plnt.work', 'v1', 'workflowruns')
 async def on_delete(name, namespace, **_):
-    # helm uninstall the release; cancel any in-flight workflow.
+    # helm uninstall + cancel any in-flight orchestration.
     ...`;
 
-const sagaCode = `# plnt/workflows/deploy_model.py
+const sagaCode = `# plnt/workflows/orchestrate.py
 from datetime import timedelta
 from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 @workflow.defn
-class DeployModelWorkflow:
+class OrchestrateWorkflow:
     @workflow.run
     async def run(self, spec: dict) -> dict:
         retry = RetryPolicy(
             initial_interval=timedelta(seconds=2),
             maximum_attempts=3,
             backoff_coefficient=2.0,
-            non_retryable_error_types=['ManifestInvalid', 'ImageUnpullable'],
+            non_retryable_error_types=['SpecInvalid', 'BackendUnavailable'],
         )
         try:
             await workflow.execute_activity(
-                validate_manifest, spec, start_to_close_timeout=timedelta(seconds=30), retry_policy=retry)
+                pull_workflow_spec, spec, start_to_close_timeout=timedelta(minutes=5), retry_policy=retry)
             await workflow.execute_activity(
-                pull_and_verify_weights, spec, start_to_close_timeout=timedelta(minutes=30), retry_policy=retry)
+                resolve_backend, spec, start_to_close_timeout=timedelta(seconds=30), retry_policy=retry)
             release = await workflow.execute_activity(
                 helm_install_canary, spec, start_to_close_timeout=timedelta(minutes=10), retry_policy=retry)
             smoke = await workflow.execute_activity(
@@ -87,66 +88,74 @@ class DeployModelWorkflow:
             await workflow.execute_activity(
                 promote_to_stable, release, start_to_close_timeout=timedelta(minutes=5))
             return {'status': 'ready', 'endpoint': release['endpoint']}
-        except Exception as e:
+        except Exception:
             await workflow.execute_activity(helm_rollback, spec)  # compensation
             raise`;
 
-const runtimeAdapter = `# plnt/runtime/base.py
-from typing import Protocol, AsyncIterator
-from plnt.playground.schemas import ChatCompletionRequest, ChatCompletionResponse
+const workflowSpec = `# microagents/review-responder/workflow.yaml
+apiVersion: microagents.dev/v1
+kind: Workflow
+metadata:
+  name: review-responder
+  version: 1.2.0
+spec:
+  description: Draft an on-brand reply to a Google Business review.
+  runtime:
+    image: ghcr.io/microagents/runner:0.4.0
+    entrypoint: python -m review_responder
+  steps:
+    - id: classify_intent      # sentiment + topic
+      tool: llm.classify
+    - id: retrieve_brand_voice # RAG from tenant KB
+      tool: rag.query
+      deps: [classify_intent]
+    - id: draft_reply
+      tool: llm.generate
+      deps: [retrieve_brand_voice]
+    - id: safety_check
+      tool: policy.moderate
+      deps: [draft_reply]
+  requirements:
+    gpuClass: nvidia.com/h100
+    gpuCount: 2
+    memoryGiB: 40`;
 
-class RuntimeAdapter(Protocol):
-    """One interface, four backends: vLLM, TGI, TRT-LLM, SGLang."""
-    model_id: str
-    runtime: str
-
-    async def complete(
-        self, req: ChatCompletionRequest,
-    ) -> ChatCompletionResponse: ...
-
-    def stream(
-        self, req: ChatCompletionRequest,
-    ) -> AsyncIterator: ...
-
-    async def readyz(self) -> bool: ...
-    async def metrics(self) -> dict: ...  # TTFT / TPOT / tokens-per-s / KV-cache-util`;
-
-const deployLog = [
-  { ts: '04:17:33', kind: 'watch',       payload: 'InferenceModel/<span class="v">llama-3.1-70b-instruct</span> event=<span class="v">create</span>' },
-  { ts: '04:17:33', kind: 'workflow',    payload: 'start · <span class="v">deploy-default-llama-3.1-70b-instruct</span>' },
-  { ts: '04:17:34', kind: 'validate',    payload: 'schema ok · storage_uri reachable · image pullable · gpu class available' },
-  { ts: '04:17:36', kind: 'pull',        payload: 'safetensors · 141 GiB · sha256 verified · CAS hit=<span class="v">partial</span>' },
-  { ts: '04:18:02', kind: 'helm',        payload: 'install release=<span class="v">llama-70b-canary</span> · replicas=1 · vs.weight=5%' },
-  { ts: '04:19:41', kind: 'smoke',       payload: 'n=10 · TTFT p50=<span class="v">182ms</span> p95=241ms · TPOT p50=<span class="v">28ms</span> · pass' },
-  { ts: '04:19:42', kind: 'promote',     payload: 'canary → stable · vs.weight=100% · replicas=1→3' },
-  { ts: '04:19:42', kind: 'ready',       payload: 'endpoint=<span class="v">llama-3.1-70b-instruct.plnt.svc/v1/chat/completions</span>' },
+const runLog = [
+  { ts: '04:17:33', kind: 'watch',       payload: 'WorkflowRun/<span class="v">review-responder</span> event=<span class="v">create</span>' },
+  { ts: '04:17:33', kind: 'workflow',    payload: 'start · <span class="v">orchestrate-default-review-responder</span>' },
+  { ts: '04:17:34', kind: 'pull',        payload: 'spec ref=<span class="v">review-responder@1.2.0</span> · source=<span class="v">s3://microagents</span> · sha256 verified' },
+  { ts: '04:17:35', kind: 'resolve',     payload: 'backend=<span class="v">gpu-cluster-01</span> · gpus=2 available · node pool=<span class="v">agent-workflows</span>' },
+  { ts: '04:17:41', kind: 'helm',        payload: 'install release=<span class="v">review-responder-canary</span> · replicas=1 · vs.weight=5%' },
+  { ts: '04:19:14', kind: 'smoke',       payload: 'n=10 · p50=<span class="v">1.1s</span> p95=<span class="v">1.8s</span> · errors=0 · pass' },
+  { ts: '04:19:15', kind: 'promote',     payload: 'canary → stable · vs.weight=100% · replicas=1→3' },
+  { ts: '04:19:15', kind: 'ready',       payload: 'endpoint=<span class="v">review-responder.plnt.svc/invoke</span>' },
 ];
 
-const runtimes = [
-  { k: 'vLLM', v: '<strong>Chart <code>vllm-runtime</code>.</strong> Paged attention, continuous batching, prefix cache. FP16 / FP8 / AWQ / GPTQ. Default runtime for dense LLM serving.' },
-  { k: 'TGI', v: '<strong>Chart <code>tgi-runtime</code>.</strong> Hugging Face Text Generation Inference. Flash-attention 2, tensor parallel via <code>num_shard</code>, GPTQ / AWQ / FP8.' },
-  { k: 'TRT-LLM', v: '<strong>Chart <code>trt-llm-runtime</code>.</strong> Precompiled TensorRT engines on Triton Inference Server. Engine build runs as a workflow step; cold start ~7 min, warm ~40 s.' },
-  { k: 'SGLang', v: '<strong>Chart <code>sglang-runtime</code>.</strong> RadixAttention prefix caching. Structured generation via SGL DSL. Best-in-class for reasoning models with long CoT traces.' },
+const layers = [
+  { k: 'PRODUCT', v: '<strong>plnt-cloud (or any consumer).</strong> A SaaS surface that needs narrow, reliable AI features. Calls the workflow endpoint plnt exposes — same shape for every workflow.' },
+  { k: 'REGISTRY', v: '<strong>microagents.</strong> S3-backed store of workflow specs (steps, tool bindings, GPU requirements). Versioned, hash-verifiable, pullable. Publishing is a git push + a sync job.' },
+  { k: 'RUNTIME', v: '<strong>plnt.</strong> Watches a <code>WorkflowRun</code> CRD → runs a Temporal saga → Helm-installs a runner pod on the chosen backend → canary → promote or rollback.' },
+  { k: 'BACKEND', v: '<strong>Any Kubernetes + GPU node pool.</strong> plnt speaks to the K8s API; backends are declared once in a <code>PlntBackend</code> resource and referenced by name from every WorkflowRun.' },
 ];
 
 const gaps = [
-  { k: 'GPU access', v: '<strong>No real GPU hardware yet.</strong> The demo playground proxies to NVIDIA NIM hosted APIs. The Helm charts are shaped for real GPU nodes; hardening on H100/A100 spot instances is the next quarter of work.' },
-  { k: 'BuildKit / CUDA images', v: '<strong>Multi-arch CUDA base images are new territory.</strong> One working <code>runtime.Dockerfile</code> ships; industrialising the build pipeline (NVIDIA container toolkit, multi-stage CUDA, image signing) is stated future work.' },
-  { k: 'Multi-cluster', v: '<strong>Single-cluster demo.</strong> Multi-cluster deploy sagas are a design I understand (fan-out activities keyed by cluster context, per-cluster canary), not code I\'ve run at scale.' },
-  { k: 'Benchmarking loop', v: '<strong>Metrics scaffold exists; the p99-alert automation does not.</strong> TTFT / TPOT / tokens-per-s / KV-cache-util are captured; wiring them to Grafana + PagerDuty for regression alerts is Phase 6.' },
+  { k: 'Registry publishing UX', v: '<strong>microagents ships a pull path; the push path is a manual S3 sync.</strong> A proper <code>microagents publish</code> CLI + signature verification is planned Q1 2026.' },
+  { k: 'Multi-cluster', v: '<strong>Single-cluster demo today.</strong> Multi-cluster is a design I understand (fan-out activities keyed by cluster context; per-cluster canary) but not yet code I\'ve run at scale.' },
+  { k: 'GPU scheduling policy', v: '<strong>plnt respects nvidia.com/gpu limits and node selectors; it does not yet do capacity-aware placement across pools.</strong> The scheduler-plugin work is Phase 5.' },
+  { k: 'Observability', v: '<strong>Temporal history + Kubernetes events cover the deploy lane.</strong> Per-invocation tracing (OpenTelemetry span per workflow step) is stubbed but not wired to a collector yet.' },
 ];
 ---
 
 <Layout title={title} description={description} path="/architecture">
 
-  <section class="section" style="padding-top: clamp(5rem, 9vw, 7rem); padding-bottom: clamp(4rem, 7vw, 5rem);">
+  <section class="hero" style="padding-top: clamp(3.5rem, 6vw, 5rem); padding-bottom: clamp(2.5rem, 4vw, 3.5rem);">
     <div class="container">
       <span class="eyebrow">00 / 09 — architecture</span>
-      <h1 style="max-width: 24ch;">The CRD is the deploy contract. The saga is the deploy engine.</h1>
+      <h1 style="max-width: 24ch;">The CRD is the contract. The saga is the engine. The backend is a choice.</h1>
       <p class="lead mt-4" style="max-width: 62ch;">
-        plnt is nine pieces: a CRD, an operator, a Temporal workflow, four runtime Helm charts,
-        an Envoy router, and a benchmarking harness. Each piece is small enough to explain
-        on one screen.
+        plnt is nine pieces: a CRD, an operator, a Temporal workflow, a workflow-spec pull path,
+        a Helm chart template, a backend-registration resource, a router, a smoke harness, and a
+        rollback path. Each piece is small enough to explain on one screen.
       </p>
     </div>
   </section>
@@ -154,50 +163,66 @@ const gaps = [
   <section class="section">
     <div class="container">
       <div class="sechead">
-        <div class="count">01 <span class="of">/ 09</span> — DIAGRAM</div>
-        <p class="lead-text">
-          One K8s cluster. One operator. One workflow engine. N runtimes.
-        </p>
+        <div class="count">01 <span class="of">/ 09</span> — STACK</div>
+        <div><p class="lead-text">Four layers. plnt is the third. Everything above it consumes; everything below it is Kubernetes.</p></div>
       </div>
-      <div class="term" style="max-width: 920px;">
+      <div class="rows">
+        {layers.map((l) => (
+          <div class="r">
+            <div class="k">{l.k}</div>
+            <p class="v" set:html={l.v} />
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section cream">
+    <div class="container">
+      <div class="sechead">
+        <div class="count">02 <span class="of">/ 09</span> — DIAGRAM</div>
+        <div><p class="lead-text">One K8s cluster. One operator. One workflow engine. N workflows.</p></div>
+      </div>
+      <div class="term" style="max-width: 940px;">
         <div class="chrome">
           <span class="dots"><span></span><span></span><span></span></span>
           <span>plnt · single-cluster topology</span>
         </div>
         <div class="body">
-<pre style="font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.6; color: var(--ink-2); margin: 0;">     plnt CLI                    kubectl                    plnt-cloud
-        │                          │                            │
-        └──────────────┬───────────┘                            │
-                       ▼                                        │
-        ┌─────────────────────────────┐                         │
-        │  InferenceModel  (K8s CRD)  │                         │
-        └──────────────┬──────────────┘                         │
-                       │  watch                                 │
-                       ▼                                        │
-        ┌─────────────────────────────┐                         │
-        │  plnt operator  (kopf)      │                         │
-        └──────────────┬──────────────┘                         │
-                       │  start_workflow(spec)                  │
-                       ▼                                        │
-     ┌───────────────────────────────────────────┐              │
-     │  Temporal · DeployModelWorkflow           │              │
-     │  validate → pull → helm → smoke → promote │              │
-     │       └────────────┴──────────┴──▶ rollback              │
-     └───────────────────────────────────────────┘              │
-                       │  helm install                          │
-                       ▼                                        │
-     ┌──────────┬──────────┬──────────┬──────────┐              │
-     │  vllm-   │  tgi-    │ trt-llm- │ sglang-  │              │
-     │  runtime │  runtime │  runtime │  runtime │              │
-     └──────────┴──────────┴──────────┴──────────┘              │
-                       │                                        │
-                       ▼                                        │
-                ┌──────────────┐                                │
-                │ envoy router │  (VirtualService weights)      │
-                └──────┬───────┘                                │
-                       │                                        │
-                       ▼                                        │
-               /v1/chat/completions  ◀────────────────────── consume
+<pre style="font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.65; color: var(--ink-3); margin: 0;">    plnt CLI                    kubectl                    plnt-cloud
+       │                          │                            │
+       └──────────────┬───────────┘                            │
+                      ▼                                        │
+       ┌─────────────────────────────┐                         │
+       │  WorkflowRun  (K8s CRD)     │                         │
+       └──────────────┬──────────────┘                         │
+                      │  watch                                 │
+                      ▼                                        │
+       ┌─────────────────────────────┐                         │
+       │  plnt operator  (kopf)      │                         │
+       └──────────────┬──────────────┘                         │
+                      │  start_workflow(spec)                  │
+                      ▼                                        │
+    ┌──────────────────────────────────────────┐               │
+    │  Temporal · OrchestrateWorkflow          │               │
+    │  pull → resolve → helm → smoke → promote │               │
+    │       └──────────────┴──────────▶ rollback               │
+    └──────────────────────────────────────────┘               │
+                      │  helm install                          │
+                      ▼                                        │
+    ┌──────────────────────────────────────────┐               │
+    │  workflow runner pod                     │               │
+    │  ─ pulls spec from microagents (S3)      │               │
+    │  ─ mounts tools declared in spec         │               │
+    │  ─ exposes /invoke on OpenAPI shape      │               │
+    └──────────────────────────────────────────┘               │
+                      │                                        │
+                      ▼                                        │
+              ┌──────────────┐                                 │
+              │ envoy router │  (VirtualService weights)       │
+              └──────┬───────┘                                 │
+                     ▼                                         │
+                  /invoke  ◀───────────────────────────────── consume
 </pre>
         </div>
       </div>
@@ -207,19 +232,34 @@ const gaps = [
   <section class="section">
     <div class="container">
       <div class="sechead">
-        <div class="count">02 <span class="of">/ 09</span> — CRD</div>
-        <p class="lead-text">
-          The <code>InferenceModel</code> resource is the entire deploy contract.
-          Everything the operator, the workflow, and the Helm chart need is on the spec.
-        </p>
+        <div class="count">03 <span class="of">/ 09</span> — CRD</div>
+        <div><p class="lead-text">The <code>WorkflowRun</code> resource is the entire deploy contract. Everything the operator, the saga, and the Helm chart need is on the spec.</p></div>
       </div>
       <div class="term" style="max-width: 900px;">
         <div class="chrome">
           <span class="dots"><span></span><span></span><span></span></span>
-          <span>examples/llama-3.1-70b-instruct.yaml</span>
+          <span>examples/review-responder.yaml</span>
         </div>
         <div class="body">
-          <Code code={crdSpec} lang="yaml" theme="github-dark-default" />
+          <Code code={crdSpec} lang="yaml" theme="github-light" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section cream">
+    <div class="container">
+      <div class="sechead">
+        <div class="count">04 <span class="of">/ 09</span> — WORKFLOW SPEC</div>
+        <div><p class="lead-text">The thing plnt pulls from the registry. A workflow is a directed graph of steps + tool bindings + resource requirements.</p></div>
+      </div>
+      <div class="term" style="max-width: 900px;">
+        <div class="chrome">
+          <span class="dots"><span></span><span></span><span></span></span>
+          <span>microagents/review-responder/workflow.yaml</span>
+        </div>
+        <div class="body">
+          <Code code={workflowSpec} lang="yaml" theme="github-light" />
         </div>
       </div>
     </div>
@@ -228,19 +268,34 @@ const gaps = [
   <section class="section">
     <div class="container">
       <div class="sechead">
-        <div class="count">03 <span class="of">/ 09</span> — OPERATOR</div>
-        <p class="lead-text">
-          A Python <code>kopf</code> controller watches the CRD.
-          Create / update / delete map directly to Temporal workflow starts, updates, and cancellations.
-        </p>
+        <div class="count">05 <span class="of">/ 09</span> — OPERATOR</div>
+        <div><p class="lead-text">A Python <code>kopf</code> controller watches the CRD. Create / update / delete map directly to Temporal workflow starts, updates, and cancellations.</p></div>
       </div>
       <div class="term" style="max-width: 900px;">
         <div class="chrome">
           <span class="dots"><span></span><span></span><span></span></span>
-          <span>plnt/operators/inferencemodel_controller.py</span>
+          <span>plnt/operators/workflowrun_controller.py</span>
         </div>
         <div class="body">
-          <Code code={operatorCode} lang="python" theme="github-dark-default" />
+          <Code code={operatorCode} lang="python" theme="github-light" />
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section cream">
+    <div class="container">
+      <div class="sechead">
+        <div class="count">06 <span class="of">/ 09</span> — SAGA</div>
+        <div><p class="lead-text">The orchestration saga is a Temporal workflow. Compensation on failure via <code>helm rollback</code>. Retries per activity, non-retryable error types short-circuit obvious dead-ends.</p></div>
+      </div>
+      <div class="term" style="max-width: 900px;">
+        <div class="chrome">
+          <span class="dots"><span></span><span></span><span></span></span>
+          <span>plnt/workflows/orchestrate.py</span>
+        </div>
+        <div class="body">
+          <Code code={sagaCode} lang="python" theme="github-light" />
         </div>
       </div>
     </div>
@@ -249,32 +304,8 @@ const gaps = [
   <section class="section">
     <div class="container">
       <div class="sechead">
-        <div class="count">04 <span class="of">/ 09</span> — SAGA</div>
-        <p class="lead-text">
-          The deploy saga is a Temporal workflow. Compensation on failure via <code>helm rollback</code>.
-          Retries per activity with budgets. Non-retryable error types short-circuit obvious dead-ends.
-        </p>
-      </div>
-      <div class="term" style="max-width: 900px;">
-        <div class="chrome">
-          <span class="dots"><span></span><span></span><span></span></span>
-          <span>plnt/workflows/deploy_model.py</span>
-        </div>
-        <div class="body">
-          <Code code={sagaCode} lang="python" theme="github-dark-default" />
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="sechead">
-        <div class="count">05 <span class="of">/ 09</span> — LIVE LOG</div>
-        <p class="lead-text">
-          One deploy run. Captured from the Temporal event history for
-          <code>deploy-default-llama-3.1-70b-instruct</code>.
-        </p>
+        <div class="count">07 <span class="of">/ 09</span> — LIVE RUN</div>
+        <div><p class="lead-text">One orchestration. Captured from the Temporal event history for <code>orchestrate-default-review-responder</code>.</p></div>
       </div>
       <div class="term" style="max-width: 900px;">
         <div class="chrome">
@@ -282,73 +313,29 @@ const gaps = [
           <span>temporal · workflow history · r-9c4f218e0a</span>
         </div>
         <div class="body">
-          <LogStream events={deployLog} />
+          <LogStream events={runLog} />
         </div>
       </div>
     </div>
   </section>
 
-  <section class="section">
+  <section class="section cream">
     <div class="container">
       <div class="sechead">
-        <div class="count">06 <span class="of">/ 09</span> — RUNTIMES</div>
-        <p class="lead-text">
-          Four charts, one control API. Each speaks OpenAI wire format at the pod boundary.
-        </p>
-      </div>
-      <div class="rows">
-        {runtimes.map((r) => (
-          <div class="r">
-            <div class="k">{r.k}</div>
-            <p class="v" set:html={r.v} />
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="sechead">
-        <div class="count">07 <span class="of">/ 09</span> — ADAPTER</div>
-        <p class="lead-text">
-          The chart per runtime is the deployment shape. The <code>RuntimeAdapter</code> Protocol
-          is the code shape. Adding a fifth backend is one class, not a fork.
-        </p>
-      </div>
-      <div class="term" style="max-width: 900px;">
-        <div class="chrome">
-          <span class="dots"><span></span><span></span><span></span></span>
-          <span>plnt/runtime/base.py</span>
-        </div>
-        <div class="body">
-          <Code code={runtimeAdapter} lang="python" theme="github-dark-default" />
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <section class="section">
-    <div class="container">
-      <div class="sechead">
-        <div class="count">08 <span class="of">/ 09</span> — BENCH</div>
-        <p class="lead-text">
-          The metrics that prove the platform works: <code>TTFT</code> (time-to-first-token),
-          <code>TPOT</code> (time-per-output-token), tokens/sec/GPU, KV-cache utilization.
-          Scraped from each runtime's <code>/metrics</code> endpoint into Prometheus.
-        </p>
+        <div class="count">08 <span class="of">/ 09</span> — METRICS</div>
+        <div><p class="lead-text">The numbers that prove the runtime works: p50/p95/p99 per-invocation latency, error rate, GPU utilization, queue depth. Scraped from each workflow's <code>/metrics</code> endpoint into Prometheus.</p></div>
       </div>
       <div class="term" style="max-width: 780px;">
         <div class="chrome">
           <span class="dots"><span></span><span></span><span></span></span>
-          <span>plnt bench --model llama-3.1-70b-instruct --qps 10 --duration 60s</span>
+          <span>plnt bench --workflow review-responder --qps 10 --duration 60s</span>
         </div>
         <div class="body">
-<pre style="margin: 0; font-family: var(--font-mono); font-size: 0.78rem; line-height: 1.7; color: var(--ink-2);">TTFT      p50 =   182 ms   p95 =   241 ms   p99 =   289 ms
-TPOT      p50 =    28 ms   p95 =    34 ms   p99 =    41 ms
-tokens/s/GPU               =   87.3
-KV cache util             =   72 %
-prefix cache hit rate     =   41 %
+<pre style="margin: 0; font-family: var(--font-mono); font-size: 0.8rem; line-height: 1.75; color: var(--ink-2);">latency     p50 =   1.10 s   p95 =   1.82 s   p99 =   2.41 s
+error rate                  =   0.00 %
+throughput                  =   9.7  invocations/s
+gpu utilization             =   68 %
+step-cache hit rate         =   34 %
 </pre>
         </div>
       </div>
@@ -359,9 +346,7 @@ prefix cache hit rate     =   41 %
     <div class="container">
       <div class="sechead">
         <div class="count">09 <span class="of">/ 09</span> — GAPS</div>
-        <p class="lead-text">
-          Where the current build is honest about what it isn't. Named upfront, not hidden.
-        </p>
+        <div><p class="lead-text">Where the current build is honest about what it isn't. Named upfront, not hidden.</p></div>
       </div>
       <div class="rows">
         {gaps.map((g) => (
@@ -374,7 +359,7 @@ prefix cache hit rate     =   41 %
       <div class="flex gap wrap mt-5">
         <a class="btn primary" href="https://play.plnt.work" target="_blank" rel="noopener">Open playground <span class="arrow">→</span></a>
         <a class="btn" href="/roadmap">Roadmap</a>
-        <a class="btn" href="https://github.com/devdattatalele/plnt" target="_blank" rel="noopener">GitHub</a>
+        <a class="btn ghost" href="https://github.com/plnt-work/plnt" target="_blank" rel="noopener">GitHub ↗</a>
       </div>
     </div>
   </section>

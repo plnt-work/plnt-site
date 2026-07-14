@@ -34,7 +34,7 @@ That's the whole interface. Two methods (non-streaming + streaming) plus two ide
 
 ## Shipping implementations
 
-Live in [`plnt/playground/backends.py`](https://github.com/devdattatalele/plnt/blob/main/plnt/playground/backends.py):
+Live in [`plnt/playground/backends.py`](https://github.com/plnt-work/plnt/blob/main/plnt/playground/backends.py):
 
 ### MockBackend
 
@@ -75,7 +75,7 @@ Each runs behind its own Helm chart. From the pod boundary out, they all look th
 Adding a fifth runtime (say, `llama-cpp`) is:
 
 1. **New Helm chart** at `plnt/charts/llama-cpp-runtime/` with Deployment + Service + HPA + ConfigMap.
-2. **CRD enum bump** — add `llama-cpp` to `spec.runtime`'s enum in [`plnt/operators/crds/inferencemodel.yaml`](https://github.com/devdattatalele/plnt/blob/main/plnt/operators/crds/inferencemodel.yaml).
+2. **CRD enum bump** — add `llama-cpp` to `spec.runtime`'s enum in [`plnt/operators/crds/workflowrun.yaml`](https://github.com/plnt-work/plnt/blob/main/plnt/operators/crds/workflowrun.yaml).
 3. **No code change** — if the runtime speaks OpenAI wire format (llama.cpp's server does), `HTTPBackend` handles it as-is.
 4. **Chart selection** — the [deploy saga](/docs/concepts/deploy-saga/)'s `helm_install_canary` activity picks the chart by `spec.runtime`.
 

@@ -18,7 +18,7 @@ Fly requires a credit card on file even for the free tier — add one at https:/
 
 ## fly.toml (in the plnt repo root)
 
-Already committed at [`plnt/fly.toml`](https://github.com/devdattatalele/plnt/blob/main/fly.toml). Points at `docker/playground-api.Dockerfile` and pre-configures the NVIDIA NIM proxy registry.
+Already committed at [`plnt/fly.toml`](https://github.com/plnt-work/plnt/blob/main/fly.toml). Points at `docker/playground-api.Dockerfile` and pre-configures the workflow registry. Real backends slot in via the `PLNT_PLAYGROUND_MODELS` env — any OpenAI-compatible upstream (vLLM, TGI, SGLang, or a hosted provider) works.
 
 ## Deploy
 
@@ -28,8 +28,8 @@ cd /Users/dev16/Documents/den-agent/plnt
 # create the app
 fly apps create plnt-playground
 
-# NVIDIA NIM key — never a file, always a secret
-fly secrets set NIM_API_KEY=nvapi-... --app plnt-playground
+# upstream API key — never a file, always a secret
+fly secrets set UPSTREAM_API_KEY=sk-... --app plnt-playground
 
 # build + push + boot the machine
 fly deploy --app plnt-playground
@@ -52,8 +52,8 @@ fly certs check playground.plnt.work --app plnt-playground     # → issued
 ## What lives where
 
 - **Image**: built from `docker/playground-api.Dockerfile`, ~150 MB.
-- **Model registry**: `PLNT_PLAYGROUND_MODELS` env in `fly.toml` — a JSON array with `"api_key_env": "NIM_API_KEY"` on each entry.
-- **NIM key**: `fly secrets set NIM_API_KEY=...` — the discovery layer reads it at startup.
+- **Workflow registry**: `PLNT_PLAYGROUND_MODELS` env in `fly.toml` — a JSON array with `"api_key_env": "UPSTREAM_API_KEY"` on each entry that proxies to a hosted provider.
+- **Upstream key**: `fly secrets set UPSTREAM_API_KEY=...` — the discovery layer reads it at startup.
 - **CORS**: pre-configured for `https://plnt.work`, `https://play.plnt.work`, `https://playground.plnt.work`.
 
 ## Point the site at it

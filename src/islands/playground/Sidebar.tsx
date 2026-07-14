@@ -1,60 +1,62 @@
-import type { DeployedModel, Quantization } from './types';
-import { MODELS, RUNTIME_LABEL } from './models';
+import type { Workflow, WorkflowBackend } from './types';
+import { WORKFLOWS, BACKENDS, CATEGORY_LABEL } from './models';
 
 interface Props {
-  model: DeployedModel;
-  variant: Quantization;
-  onSelectModel: (id: string) => void;
-  onSelectVariant: (q: Quantization) => void;
+  workflow: Workflow;
+  backend: WorkflowBackend;
+  onSelectWorkflow: (id: string) => void;
+  onSelectBackend: (id: string) => void;
   onStart: () => void;
 }
 
-export default function Sidebar({ model, variant, onSelectModel, onSelectVariant, onStart }: Props) {
-  const activeVariant = model.variants.find((v) => v.quant === variant) ?? model.variants[0];
+export default function Sidebar({ workflow, backend, onSelectWorkflow, onSelectBackend, onStart }: Props) {
+  const compatibleBackends = BACKENDS.filter((b) => workflow.compatibleBackends.includes(b.id));
+
   return (
     <aside class="pg-sidebar">
       <div class="pg-sidebar-inner">
         <div class="pg-block">
-          <div class="pg-label">Model</div>
+          <div class="pg-label">Workflow</div>
           <select
             class="pg-model-select"
-            value={model.id}
-            onChange={(e) => onSelectModel((e.currentTarget as HTMLSelectElement).value)}
-            aria-label="Deployed model"
+            value={workflow.id}
+            onChange={(e) => onSelectWorkflow((e.currentTarget as HTMLSelectElement).value)}
+            aria-label="Micro-agent workflow"
           >
-            {MODELS.map((m) => (
-              <option value={m.id}>{m.name}</option>
+            {WORKFLOWS.map((w) => (
+              <option value={w.id}>{w.name}</option>
             ))}
           </select>
-          <div class="pg-sub">{RUNTIME_LABEL[model.runtime]} · {model.gpu} · {model.params}</div>
+          <div class="pg-sub">{CATEGORY_LABEL[workflow.category]} · v{workflow.version} · {workflow.steps.length} steps</div>
         </div>
 
-        <p class="pg-desc">{model.description}</p>
+        <p class="pg-desc">{workflow.description}</p>
 
         <div class="pg-block">
-          <div class="pg-label">Quantization</div>
+          <div class="pg-label">Backend</div>
           <select
             class="pg-variant-select"
-            value={variant}
-            onChange={(e) => onSelectVariant((e.currentTarget as HTMLSelectElement).value as Quantization)}
-            aria-label="Model quantization"
+            value={backend.id}
+            onChange={(e) => onSelectBackend((e.currentTarget as HTMLSelectElement).value)}
+            aria-label="GPU backend cluster"
           >
-            {model.variants.map((v) => (
-              <option value={v.quant}>{v.quant} · {v.sizeGiB} GiB</option>
+            {compatibleBackends.map((b) => (
+              <option value={b.id}>{b.label} · {b.status}</option>
             ))}
           </select>
+          <div class="pg-sub">{backend.cluster} · {backend.gpuAvailable} {backend.gpuClass.replace('nvidia.com/', '')} free</div>
         </div>
 
         <button class="pg-cta" onClick={onStart}>
-          New session <span class="pg-cta-arrow">→</span>
+          Invoke workflow <span class="pg-cta-arrow">→</span>
         </button>
 
         <dl class="pg-meta">
-          <div><dt>Context</dt><dd>{model.contextLength}</dd></div>
-          <div><dt>License</dt><dd>{model.license}</dd></div>
-          <div><dt>Selected</dt><dd>{activeVariant.quant} · {activeVariant.sizeGiB} GiB</dd></div>
-          <div><dt>Deployed</dt><dd>{model.deployedAgo} ago</dd></div>
-          <div><dt>Chart</dt><dd class="pg-mono">{model.chartVersion}</dd></div>
+          <div><dt>Runtime</dt><dd class="pg-mono">{workflow.runtime.image.split('/').pop()}</dd></div>
+          <div><dt>GPU</dt><dd>{workflow.requirements.gpuCount}× {workflow.requirements.gpuClass.replace('nvidia.com/', '')}</dd></div>
+          <div><dt>Memory</dt><dd>{workflow.requirements.memoryGiB} GiB</dd></div>
+          <div><dt>Chart</dt><dd class="pg-mono">{workflow.chartVersion}</dd></div>
+          <div><dt>Run ID</dt><dd class="pg-mono">{workflow.workflowRun}</dd></div>
         </dl>
 
         <p class="pg-footnote">

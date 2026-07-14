@@ -14,10 +14,10 @@ The initial low-traffic-percent rollout of a new model. Default 5%. If the [smok
 The playground API's model list is read once at pod startup from a mounted ConfigMap. `helm upgrade` with a new list restarts the pod and picks up the new registry. There is no REST mutation API.
 
 ### CRD
-Custom Resource Definition — a Kubernetes-native way to add a new "kind" of object. plnt defines one: [`apiVersion: plnt.work/v1, kind: InferenceModel`](/docs/concepts/inferencemodel/).
+Custom Resource Definition — a Kubernetes-native way to add a new "kind" of object. plnt defines one: [`apiVersion: plnt.work/v1, kind: WorkflowRun`](/docs/concepts/workflowrun/).
 
 ### Deploy saga
-The Temporal workflow that turns an `InferenceModel` apply into a running, traffic-served pod. Five activities: validate → pull-and-verify weights → helm-install-canary → smoke-test → promote-or-rollback. Compensation on failure. See [Deploy saga](/docs/concepts/deploy-saga/).
+The Temporal workflow that turns an `WorkflowRun` apply into a running, traffic-served pod. Five activities: validate → pull-and-verify weights → helm-install-canary → smoke-test → promote-or-rollback. Compensation on failure. See [Deploy saga](/docs/concepts/deploy-saga/).
 
 ### FastAPI
 The Python HTTP framework the playground API is built on. Handles routing, pydantic validation, OpenAPI schema generation, and Server-Sent Events.
@@ -28,7 +28,7 @@ Horizontal Pod Autoscaler. Kubernetes primitive for scaling a Deployment on CPU 
 ### HTTPBackend
 [`RuntimeAdapter`](/docs/concepts/runtime-adapter/) implementation that proxies to any OpenAI-compat upstream over HTTP. vLLM, TGI (`--openai-api`), SGLang, llama.cpp server all satisfy this contract.
 
-### InferenceModel
+### WorkflowRun
 The plnt CRD. The declarative unit of "I want this model, served by this runtime, on this cluster." Applied by `kubectl apply -f` or `plnt deploy`. Watched by the plnt operator.
 
 ### JTBD
@@ -43,8 +43,8 @@ Python framework for writing Kubernetes operators. The plnt operator uses it.
 ### MockBackend
 [`RuntimeAdapter`](/docs/concepts/runtime-adapter/) implementation that echoes the last user message word-by-word via SSE. No network, no GPU. Used on kind and in tests.
 
-### NIM
-NVIDIA Inference Microservice. NVIDIA's first-party program for containerised model serving. plnt is the OSS, bring-your-own-cluster spiritual analog. The site's live playground proxies to NIM-hosted endpoints today; self-hosting NIM containers on the vllm-runtime chart is the natural next step.
+### microagents
+The workflow-recipe registry that plnt pulls from. Each recipe is a versioned spec (`workflow.yaml`) + runnable code, stored on S3 or an OCI registry and referenced by name in a `WorkflowRun` spec. Sibling repo: [`plnt-work/microagents`](https://github.com/plnt-work/microagents).
 
 ### Playground
 The public demo surface at `plnt.work/playground` (UI, owned by plnt-site) and `playground.plnt.work` (API, owned by plnt).

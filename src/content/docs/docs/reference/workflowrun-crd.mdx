@@ -1,9 +1,9 @@
 ---
-title: InferenceModel schema
-description: Every field on the plnt.work/v1 InferenceModel CRD. Types, defaults, validation constraints.
+title: WorkflowRun schema
+description: Every field on the plnt.work/v1 WorkflowRun CRD. Types, defaults, validation constraints.
 ---
 
-The canonical schema for the `InferenceModel` CRD. Source of truth: [`plnt/operators/crds/inferencemodel.yaml`](https://github.com/devdattatalele/plnt/blob/main/plnt/operators/crds/inferencemodel.yaml).
+The canonical schema for the `WorkflowRun` CRD. Source of truth: [`plnt/operators/crds/workflowrun.yaml`](https://github.com/plnt-work/plnt/blob/main/plnt/operators/crds/workflowrun.yaml).
 
 ## `spec`
 
@@ -68,7 +68,7 @@ Which runtime chart to deploy.
 
 ## Printer columns
 
-`kubectl get inferencemodel` shows:
+`kubectl get workflowrun` shows:
 
 ```
 NAME                       RUNTIME  GPU              PHASE   ENDPOINT   AGE
@@ -78,6 +78,6 @@ llama-3.1-70b-instruct     vllm     nvidia.com/h100  Ready   ...        3h
 ## Apply
 
 ```bash
-kubectl apply -f plnt/operators/crds/inferencemodel.yaml
+kubectl apply -f plnt/operators/crds/workflowrun.yaml
 kubectl apply -f examples/llama-3.1-70b-instruct.yaml
 ```

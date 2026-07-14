@@ -1,251 +1,309 @@
-import type { DeployedModel } from './types';
+import type { Workflow, WorkflowBackend } from './types';
 
-const LLAMA_MANIFEST = `apiVersion: plnt.work/v1
-kind: InferenceModel
+const REVIEW_RESPONDER_SPEC = `apiVersion: microagents.dev/v1
+kind: Workflow
 metadata:
-  name: llama-3.1-70b-instruct
+  name: review-responder
+  version: 1.2.0
 spec:
-  runtime: vllm
-  model:
-    name: meta-llama/Llama-3.1-70B-Instruct
-    storageUri: s3://plnt-models/llama-3.1-70b/fp16
-    quantization: fp16
-  resources:
-    gpu: 2
+  description: Draft an on-brand reply to a Google Business review.
+  runtime:
+    image: ghcr.io/microagents/runner:0.4.0
+    entrypoint: python -m review_responder
+  steps:
+    - id: classify_intent
+      tool: llm.classify
+    - id: retrieve_brand_voice
+      tool: rag.query
+      deps: [classify_intent]
+    - id: draft_reply
+      tool: llm.generate
+      deps: [retrieve_brand_voice]
+    - id: safety_check
+      tool: policy.moderate
+      deps: [draft_reply]
+  requirements:
     gpuClass: nvidia.com/h100
-    memoryGiB: 160
-  replicas:
-    min: 1
-    max: 4
+    gpuCount: 2
+    memoryGiB: 40
+`;
+
+const REVIEW_RESPONDER_CRD = `apiVersion: plnt.work/v1
+kind: WorkflowRun
+metadata:
+  name: review-responder
+spec:
+  workflow:
+    ref: review-responder@1.2.0
+    registry: s3://microagents
+  backend:
+    cluster: gpu-cluster-01
+    gpuClass: nvidia.com/h100
+    gpuCount: 2
+  replicas: { min: 1, max: 4 }
   canary:
     trafficPercent: 5
-  # In production plnt runs this on a real GPU node.
-  # In the demo playground, requests are proxied to NVIDIA NIM hosted API
-  # so you can talk to the actual model without owning the hardware.
+    smokeTest: { invocations: 10, p95BudgetMs: 2500 }
 `;
 
-const LLAMA_VALUES = `image:
-  repository: vllm/vllm-openai
-  tag: v0.6.3
-model:
-  name: meta-llama/Llama-3.1-70B-Instruct
-  storageUri: s3://plnt-models/llama-3.1-70b/fp16
-runtime:
-  args:
-    - --tensor-parallel-size=2
-    - --max-model-len=8192
-    - --gpu-memory-utilization=0.90
-    - --enable-prefix-caching
-resources:
-  limits:
-    nvidia.com/gpu: 2
-`;
-
-const NEMOTRON_MANIFEST = `apiVersion: plnt.work/v1
-kind: InferenceModel
+const POST_GENERATOR_SPEC = `apiVersion: microagents.dev/v1
+kind: Workflow
 metadata:
-  name: nemotron-70b-instruct
+  name: post-generator
+  version: 0.9.1
 spec:
-  runtime: trt-llm
-  model:
-    name: nvidia/Llama-3.1-Nemotron-70B-Instruct
-    storageUri: s3://plnt-models/nemotron-70b/trt-fp8
-    quantization: fp8
-  resources:
-    gpu: 4
+  description: Draft a weekly Google Business Post with image prompt.
+  runtime:
+    image: ghcr.io/microagents/runner:0.4.0
+    entrypoint: python -m post_generator
+  steps:
+    - id: pick_topic
+      tool: llm.plan
+    - id: draft_copy
+      tool: llm.generate
+      deps: [pick_topic]
+    - id: image_prompt
+      tool: llm.generate
+      deps: [pick_topic]
+  requirements:
+    gpuClass: nvidia.com/h100
+    gpuCount: 1
+    memoryGiB: 24
+`;
+
+const POST_GENERATOR_CRD = `apiVersion: plnt.work/v1
+kind: WorkflowRun
+metadata:
+  name: post-generator
+spec:
+  workflow: { ref: post-generator@0.9.1, registry: s3://microagents }
+  backend: { cluster: gpu-cluster-02, gpuClass: nvidia.com/h100, gpuCount: 1 }
+  replicas: { min: 1, max: 2 }
+`;
+
+const BOOKING_TRIAGE_SPEC = `apiVersion: microagents.dev/v1
+kind: Workflow
+metadata:
+  name: booking-triage
+  version: 0.7.3
+spec:
+  description: Classify inbound booking inquiries, check calendar, propose slots.
+  runtime:
+    image: ghcr.io/microagents/runner:0.4.0
+    entrypoint: python -m booking_triage
+  steps:
+    - id: parse_inquiry
+      tool: llm.extract
+    - id: check_calendar
+      tool: gcal.freebusy
+      deps: [parse_inquiry]
+    - id: draft_reply
+      tool: llm.generate
+      deps: [check_calendar]
+  requirements:
     gpuClass: nvidia.com/a100
-  replicas:
-    min: 1
-    max: 2
+    gpuCount: 1
+    memoryGiB: 16
 `;
 
-const NEMOTRON_VALUES = `image:
-  repository: nvcr.io/nvidia/tritonserver
-  tag: 24.09-trtllm-python-py3
-runtime:
-  args:
-    - --world_size=4
-    - --engine_dir=/engines/nemotron-70b-fp8
-resources:
-  limits:
-    nvidia.com/gpu: 4
-`;
-
-const MIXTRAL_MANIFEST = `apiVersion: plnt.work/v1
-kind: InferenceModel
+const BOOKING_TRIAGE_CRD = `apiVersion: plnt.work/v1
+kind: WorkflowRun
 metadata:
-  name: mixtral-8x22b-instruct
+  name: booking-triage
 spec:
-  runtime: tgi
-  model:
-    name: mistralai/Mixtral-8x22B-Instruct-v0.1
-    storageUri: s3://plnt-models/mixtral-8x22b/fp16
-    quantization: fp16
-  resources:
-    gpu: 4
-    gpuClass: nvidia.com/h100
-  replicas:
-    min: 1
-    max: 3
+  workflow: { ref: booking-triage@0.7.3, registry: s3://microagents }
+  backend: { cluster: gpu-cluster-01, gpuClass: nvidia.com/a100, gpuCount: 1 }
+  replicas: { min: 1, max: 3 }
 `;
 
-const MIXTRAL_VALUES = `image:
-  repository: ghcr.io/huggingface/text-generation-inference
-  tag: 2.3.1
-model:
-  name: mistralai/Mixtral-8x22B-Instruct-v0.1
-runtime:
-  args:
-    - --num-shard=4
-    - --max-input-length=16384
-    - --max-total-tokens=32768
-resources:
-  limits:
-    nvidia.com/gpu: 4
-`;
-
-const DEEPSEEK_MANIFEST = `apiVersion: plnt.work/v1
-kind: InferenceModel
+const COMPETITOR_MONITOR_SPEC = `apiVersion: microagents.dev/v1
+kind: Workflow
 metadata:
-  name: deepseek-r1
+  name: competitor-monitor
+  version: 0.5.2
 spec:
-  runtime: sglang
-  model:
-    name: deepseek-ai/DeepSeek-R1
-    storageUri: s3://plnt-models/deepseek-r1/fp8
-    quantization: fp8
-  resources:
-    gpu: 8
+  description: Pull competitor GBP data, extract diffs, flag opportunities.
+  runtime:
+    image: ghcr.io/microagents/runner:0.4.0
+    entrypoint: python -m competitor_monitor
+  steps:
+    - id: fetch_snapshot
+      tool: gbp.scrape
+    - id: extract_signals
+      tool: llm.extract
+      deps: [fetch_snapshot]
+    - id: compare_baseline
+      tool: db.query
+      deps: [extract_signals]
+    - id: alert_owner
+      tool: notify.push
+      deps: [compare_baseline]
+  requirements:
     gpuClass: nvidia.com/h100
-  replicas:
-    min: 1
-    max: 2
+    gpuCount: 2
+    memoryGiB: 32
 `;
 
-const DEEPSEEK_VALUES = `image:
-  repository: lmsysorg/sglang
-  tag: v0.3.4-cu121
-runtime:
-  args:
-    - --tp=8
-    - --context-length=32768
-    - --enable-torch-compile
-resources:
-  limits:
-    nvidia.com/gpu: 8
+const COMPETITOR_MONITOR_CRD = `apiVersion: plnt.work/v1
+kind: WorkflowRun
+metadata:
+  name: competitor-monitor
+spec:
+  workflow: { ref: competitor-monitor@0.5.2, registry: s3://microagents }
+  backend: { cluster: gpu-cluster-01, gpuClass: nvidia.com/h100, gpuCount: 2 }
+  replicas: { min: 1, max: 2 }
 `;
 
-export const MODELS: DeployedModel[] = [
+export const BACKENDS: WorkflowBackend[] = [
   {
-    id: 'llama-3.1-70b-instruct',
-    name: 'llama-3.1-70b-instruct',
-    runtime: 'vllm',
-    runtimeChart: 'vllm-runtime-0.3.1',
-    params: '70B',
-    contextLength: '128k',
-    license: 'Llama 3.1 Community',
-    gpu: '2×H100',
-    replicas: '1–4',
-    variants: [
-      { quant: 'FP16', sizeGiB: 141 },
-      { quant: 'FP8', sizeGiB: 75 },
-      { quant: 'AWQ-4bit', sizeGiB: 38 },
-    ],
-    defaultVariant: 'FP16',
-    description:
-      'Meta Llama 3.1 70B instruction-tuned. In the demo playground, requests are proxied to NVIDIA NIM. The InferenceModel manifest below is what runs when you self-host on a GPU cluster.',
-    briefing:
-      'Llama 3.1 70B is the default general-purpose model. In the plnt playground your prompt travels: browser → playground.plnt.work (FastAPI proxy on Fly.io) → NVIDIA NIM hosted API → model → back. On a real GPU cluster, the exact same InferenceModel manifest would deploy this via the vLLM Helm chart instead.',
-    deployedAgo: '3h 12m',
-    chartVersion: 'vllm-runtime-0.3.1',
-    workflowRun: 'r-9c4f218e0a',
-    endpoint: 'https://playground.plnt.work/v1/chat/completions',
-    manifest: LLAMA_MANIFEST,
-    values: LLAMA_VALUES,
+    id: 'gpu-cluster-01',
+    label: 'gpu-cluster-01',
+    cluster: 'us-east / eks-1',
+    region: 'us-east-1',
+    gpuClass: 'nvidia.com/h100',
+    gpuAvailable: 6,
+    status: 'ready',
   },
   {
-    id: 'nemotron-70b-instruct',
-    name: 'nemotron-70b-instruct',
-    runtime: 'trt-llm',
-    runtimeChart: 'trt-llm-runtime-0.1.0',
-    params: '70B',
-    contextLength: '128k',
-    license: 'Llama 3.1 Community',
-    gpu: '4×A100',
-    replicas: '1–2',
-    variants: [
-      { quant: 'FP8', sizeGiB: 70 },
-      { quant: 'AWQ-4bit', sizeGiB: 38 },
-    ],
-    defaultVariant: 'FP8',
-    description:
-      'NVIDIA\'s Llama-3.1-Nemotron-70B — RLHF-tuned Llama with strong reasoning benchmarks. Compiled to a TensorRT-LLM engine on Triton. Playground proxies to NIM hosted API.',
-    briefing:
-      'Nemotron 70B is NVIDIA\'s post-trained Llama 3.1 variant. The plnt platform builds the TRT-LLM engine as a workflow step during deploy — cold-start ~7 min, warm ~40 s. In the demo playground you\'re hitting NVIDIA\'s hosted NIM directly; self-hosting would go through the trt-llm-runtime chart.',
-    deployedAgo: '1d 4h',
-    chartVersion: 'trt-llm-runtime-0.1.0',
-    workflowRun: 'r-88fe0c3b2d',
-    endpoint: 'https://playground.plnt.work/v1/chat/completions',
-    manifest: NEMOTRON_MANIFEST,
-    values: NEMOTRON_VALUES,
+    id: 'gpu-cluster-02',
+    label: 'gpu-cluster-02',
+    cluster: 'us-west / gke-1',
+    region: 'us-west-2',
+    gpuClass: 'nvidia.com/h100',
+    gpuAvailable: 3,
+    status: 'busy',
   },
   {
-    id: 'mixtral-8x22b-instruct',
-    name: 'mixtral-8x22b-instruct',
-    runtime: 'tgi',
-    runtimeChart: 'tgi-runtime-0.2.4',
-    params: '141B (MoE)',
-    contextLength: '64k',
-    license: 'Apache-2.0',
-    gpu: '4×H100',
-    replicas: '1–3',
-    variants: [
-      { quant: 'FP16', sizeGiB: 262 },
-      { quant: 'AWQ-4bit', sizeGiB: 74 },
-    ],
-    defaultVariant: 'FP16',
-    description:
-      'Mixtral 8×22B — sparse MoE, 39B active params per token. Served via Hugging Face TGI. Playground proxies to NIM hosted API.',
-    briefing:
-      'Mixtral 8×22B is a Mixture-of-Experts model — only 2 of 8 experts activate per token, so effective compute is closer to a 39B dense model. TGI handles the expert routing internally. On real GPUs plnt runs this via the tgi-runtime chart with num_shard=4.',
-    deployedAgo: '6h 41m',
-    chartVersion: 'tgi-runtime-0.2.4',
-    workflowRun: 'r-4d8b2e9017',
-    endpoint: 'https://playground.plnt.work/v1/chat/completions',
-    manifest: MIXTRAL_MANIFEST,
-    values: MIXTRAL_VALUES,
-  },
-  {
-    id: 'deepseek-r1',
-    name: 'deepseek-r1',
-    runtime: 'sglang',
-    runtimeChart: 'sglang-runtime-0.1.2',
-    params: '671B (MoE)',
-    contextLength: '128k',
-    license: 'MIT',
-    gpu: '8×H100',
-    replicas: '1–2',
-    variants: [
-      { quant: 'FP8', sizeGiB: 671 },
-      { quant: 'AWQ-4bit', sizeGiB: 200 },
-    ],
-    defaultVariant: 'FP8',
-    description:
-      'DeepSeek-R1 — reasoning model with chain-of-thought training, 37B active params per token. Served via SGLang. Playground proxies to NIM hosted API.',
-    briefing:
-      'DeepSeek-R1 is a reasoning-focused model that emits <think>...</think> traces before its final answer. SGLang\'s RadixAttention gives strong prefix-cache hit rates for the long reasoning chains. On real GPUs it needs 8×H100 with TP=8.',
-    deployedAgo: '2d 9h',
-    chartVersion: 'sglang-runtime-0.1.2',
-    workflowRun: 'r-71a2f04c1e',
-    endpoint: 'https://playground.plnt.work/v1/chat/completions',
-    manifest: DEEPSEEK_MANIFEST,
-    values: DEEPSEEK_VALUES,
+    id: 'kind-local',
+    label: 'kind-local',
+    cluster: 'localhost / kind',
+    region: 'laptop',
+    gpuClass: 'cpu-stub',
+    gpuAvailable: 0,
+    status: 'kind',
   },
 ];
 
-export const RUNTIME_LABEL: Record<string, string> = {
-  vllm: 'vLLM',
-  tgi: 'TGI',
-  'trt-llm': 'TRT-LLM',
-  sglang: 'SGLang',
+export const WORKFLOWS: Workflow[] = [
+  {
+    id: 'review-responder',
+    name: 'review-responder',
+    version: '1.2.0',
+    category: 'reviews',
+    description:
+      'Drafts on-brand replies to Google Business reviews. Four-step DAG: classify → retrieve brand voice → draft → moderate.',
+    briefing:
+      'The review-responder workflow is the flagship recipe from the microagents registry. Given a review payload, it classifies sentiment and topic, retrieves the merchant\'s brand voice from a small RAG index, drafts a reply, and passes it through a policy check. Runs on 2×H100 in ~1.1s p50. In the playground, plnt orchestrates the same DAG against a live model endpoint.',
+    steps: [
+      { id: 'classify_intent',      label: 'Classify sentiment + topic',       tool: 'llm.classify',  deps: [],                     approxMs: 240 },
+      { id: 'retrieve_brand_voice', label: 'Retrieve brand voice from RAG',    tool: 'rag.query',     deps: ['classify_intent'],    approxMs: 320 },
+      { id: 'draft_reply',          label: 'Draft the reply',                  tool: 'llm.generate',  deps: ['retrieve_brand_voice'], approxMs: 460 },
+      { id: 'safety_check',         label: 'Moderate against policy',          tool: 'policy.moderate', deps: ['draft_reply'],      approxMs: 120 },
+    ],
+    runtime: {
+      image: 'ghcr.io/microagents/runner:0.4.0',
+      entrypoint: 'python -m review_responder',
+    },
+    requirements: { gpuClass: 'nvidia.com/h100', gpuCount: 2, memoryGiB: 40 },
+    compatibleBackends: ['gpu-cluster-01', 'kind-local'],
+    defaultBackend: 'gpu-cluster-01',
+    chartVersion: 'workflow-runner-0.3.1',
+    workflowRun: 'r-9c4f218e0a',
+    endpoint: 'https://playground.plnt.work/v1/chat/completions',
+    spec: REVIEW_RESPONDER_SPEC,
+    crd: REVIEW_RESPONDER_CRD,
+    samplePrompt: 'A 2-star review: "Waited 40 minutes for a table even with a reservation. Food was fine but service felt overwhelmed." Draft an on-brand reply.',
+  },
+  {
+    id: 'post-generator',
+    name: 'post-generator',
+    version: '0.9.1',
+    category: 'content',
+    description:
+      'Drafts weekly Google Business Posts with image prompts. Three-step DAG: pick topic → draft copy → image prompt.',
+    briefing:
+      'post-generator produces a scheduled weekly post: topic suggestion tuned to the season + local events, copy in the merchant\'s voice, and a matching image prompt. Runs on 1×H100 in ~0.9s p50. Ideal for a low-cadence content workflow that a small business would set-and-forget.',
+    steps: [
+      { id: 'pick_topic',   label: 'Pick a topic',              tool: 'llm.plan',     deps: [],             approxMs: 380 },
+      { id: 'draft_copy',   label: 'Draft the post copy',       tool: 'llm.generate', deps: ['pick_topic'], approxMs: 420 },
+      { id: 'image_prompt', label: 'Generate image prompt',     tool: 'llm.generate', deps: ['pick_topic'], approxMs: 260 },
+    ],
+    runtime: {
+      image: 'ghcr.io/microagents/runner:0.4.0',
+      entrypoint: 'python -m post_generator',
+    },
+    requirements: { gpuClass: 'nvidia.com/h100', gpuCount: 1, memoryGiB: 24 },
+    compatibleBackends: ['gpu-cluster-01', 'gpu-cluster-02', 'kind-local'],
+    defaultBackend: 'gpu-cluster-02',
+    chartVersion: 'workflow-runner-0.3.1',
+    workflowRun: 'r-88fe0c3b2d',
+    endpoint: 'https://playground.plnt.work/v1/chat/completions',
+    spec: POST_GENERATOR_SPEC,
+    crd: POST_GENERATOR_CRD,
+    samplePrompt: 'Draft a Google Business Post for a coffee shop announcing a new seasonal drink launching next Monday. Cheerful, under 80 words.',
+  },
+  {
+    id: 'booking-triage',
+    name: 'booking-triage',
+    version: '0.7.3',
+    category: 'bookings',
+    description:
+      'Classifies inbound booking inquiries, checks the calendar, drafts a reply with proposed slots.',
+    briefing:
+      'booking-triage handles the DM/email volume small businesses drown in. It parses the inquiry (party size, date preferences, dietary notes), checks Google Calendar free/busy, and drafts a reply offering the best available slots. On 1×A100 it runs in ~0.8s p50.',
+    steps: [
+      { id: 'parse_inquiry',  label: 'Parse inquiry payload', tool: 'llm.extract',  deps: [],                approxMs: 220 },
+      { id: 'check_calendar', label: 'Query calendar freebusy', tool: 'gcal.freebusy', deps: ['parse_inquiry'], approxMs: 340 },
+      { id: 'draft_reply',    label: 'Draft reply with slots', tool: 'llm.generate', deps: ['check_calendar'], approxMs: 380 },
+    ],
+    runtime: {
+      image: 'ghcr.io/microagents/runner:0.4.0',
+      entrypoint: 'python -m booking_triage',
+    },
+    requirements: { gpuClass: 'nvidia.com/a100', gpuCount: 1, memoryGiB: 16 },
+    compatibleBackends: ['gpu-cluster-01', 'kind-local'],
+    defaultBackend: 'gpu-cluster-01',
+    chartVersion: 'workflow-runner-0.3.1',
+    workflowRun: 'r-4d8b2e9017',
+    endpoint: 'https://playground.plnt.work/v1/chat/completions',
+    spec: BOOKING_TRIAGE_SPEC,
+    crd: BOOKING_TRIAGE_CRD,
+    samplePrompt: 'Booking inquiry: "Hi, would love to book a table for 5 people, gluten-free, next Friday around 7pm if possible. Or Saturday works too." Draft a reply.',
+  },
+  {
+    id: 'competitor-monitor',
+    name: 'competitor-monitor',
+    version: '0.5.2',
+    category: 'analytics',
+    description:
+      'Pulls competitor Google Business data, extracts diffs, flags opportunities. Four-step DAG with a scheduled trigger.',
+    briefing:
+      'competitor-monitor runs on a schedule (default hourly). It scrapes a set of competitor GBP profiles, extracts signals (new posts, review velocity, price changes), compares to the baseline in the tenant DB, and pushes an alert if something notable changes. Runs on 2×H100 in ~1.4s p50 per competitor.',
+    steps: [
+      { id: 'fetch_snapshot',   label: 'Fetch competitor snapshot',   tool: 'gbp.scrape',   deps: [],                    approxMs: 480 },
+      { id: 'extract_signals',  label: 'Extract structured signals',  tool: 'llm.extract',  deps: ['fetch_snapshot'],     approxMs: 360 },
+      { id: 'compare_baseline', label: 'Diff against baseline',       tool: 'db.query',     deps: ['extract_signals'],   approxMs: 160 },
+      { id: 'alert_owner',      label: 'Push alert on notable diff',  tool: 'notify.push',  deps: ['compare_baseline'],  approxMs: 90 },
+    ],
+    runtime: {
+      image: 'ghcr.io/microagents/runner:0.4.0',
+      entrypoint: 'python -m competitor_monitor',
+    },
+    requirements: { gpuClass: 'nvidia.com/h100', gpuCount: 2, memoryGiB: 32 },
+    compatibleBackends: ['gpu-cluster-01'],
+    defaultBackend: 'gpu-cluster-01',
+    chartVersion: 'workflow-runner-0.3.1',
+    workflowRun: 'r-71a2f04c1e',
+    endpoint: 'https://playground.plnt.work/v1/chat/completions',
+    spec: COMPETITOR_MONITOR_SPEC,
+    crd: COMPETITOR_MONITOR_CRD,
+    samplePrompt: 'Baseline: competitor "Blue Bottle SoHo" — 4.6★, 812 reviews, posts weekly. Latest scrape: 4.5★, 823 reviews, no new post in 3 weeks. Report notable diffs.',
+  },
+];
+
+export const CATEGORY_LABEL: Record<string, string> = {
+  reviews: 'Reviews',
+  content: 'Content',
+  bookings: 'Bookings',
+  analytics: 'Analytics',
 };

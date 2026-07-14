@@ -4,7 +4,7 @@ import Playground from '../islands/playground/Playground';
 import '../styles/playground.css';
 
 const title = 'plnt — playground';
-const description = 'Chat with models deployed on plnt. Each entry is a live InferenceModel resource — vLLM, TGI, TRT-LLM, or SGLang — running behind an OpenAI-compatible endpoint.';
+const description = 'Pick a micro-agent workflow, pick a GPU backend, watch plnt orchestrate the run. Every workflow is a Temporal saga on a Helm-deployed runner pod.';
 ---
 
 <Layout title={title} description={description} path="/playground">
@@ -12,6 +12,5 @@ const description = 'Chat with models deployed on plnt. Each entry is a live Inf
 </Layout>
 
 <style is:global>
-  /* Playground uses full viewport width — remove default main padding. */
   main { padding: 0; }
 </style>

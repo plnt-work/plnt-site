@@ -10,14 +10,14 @@ export default defineConfig({
     preact({ compat: false }),
     starlight({
       title: 'plnt docs',
-      tagline: 'Multi-model inference on Kubernetes',
+      tagline: 'Orchestration runtime for agentic workflows',
       logo: { src: './src/assets/logo-mono.svg', replacesTitle: false },
       favicon: '/favicon.svg',
       customCss: [
         './src/styles/starlight-overrides.css',
       ],
       social: [
-        { icon: 'github', label: 'GitHub', href: 'https://github.com/devdattatalele/plnt' },
+        { icon: 'github', label: 'GitHub', href: 'https://github.com/plnt-work/plnt' },
       ],
       disable404Route: true,
       pagination: true,
@@ -34,8 +34,8 @@ export default defineConfig({
           label: 'Concepts',
           items: [
             { label: 'Architecture', slug: 'docs/concepts/architecture' },
-            { label: 'InferenceModel CRD', slug: 'docs/concepts/inferencemodel' },
-            { label: 'Deploy saga', slug: 'docs/concepts/deploy-saga' },
+            { label: 'WorkflowRun CRD', slug: 'docs/concepts/workflowrun' },
+            { label: 'Orchestration saga', slug: 'docs/concepts/deploy-saga' },
             { label: 'Runtime adapter', slug: 'docs/concepts/runtime-adapter' },
             { label: 'Playground API', slug: 'docs/concepts/playground-api' },
             { label: 'Glossary', slug: 'docs/concepts/glossary' },
@@ -54,7 +54,7 @@ export default defineConfig({
           label: 'Reference',
           items: [
             { label: 'API contract', slug: 'docs/reference/api-contract' },
-            { label: 'InferenceModel schema', slug: 'docs/reference/inferencemodel-crd' },
+            { label: 'WorkflowRun schema', slug: 'docs/reference/workflowrun-crd' },
           ],
         },
       ],
