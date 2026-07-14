@@ -117,7 +117,7 @@ helm install plnt oci://ghcr.io/plnt-work/charts/vllm-runtime --version 0.3.1
 | Secret | Where | Used by |
 |--------|-------|---------|
 | `GITHUB_TOKEN` | Auto-provided by Actions | build.yml, publish-charts.yml |
-| `NIM_API_KEY` | Fly.io secrets / K8s Secret | Runtime |
+| `UPSTREAM_API_KEY` | Fly.io secrets / K8s Secret | Runtime |
 | `VERCEL_TOKEN` | Vercel dashboard (not in Actions) | Vercel's own deploy |
 | DigitalOcean token | Local shell for `doctl auth init` | Manual `helm upgrade` |
 

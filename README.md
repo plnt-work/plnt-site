@@ -1,6 +1,6 @@
 # plnt-site
 
-The showcase site for [**plnt**](https://github.com/devdattatalele/plnt) — a personal local native twin.
+The showcase site for [**plnt**](https://github.com/plnt-work/plnt) — a personal local native twin.
 
 Built with [Astro](https://astro.build) + [Starlight](https://starlight.astro.build) for the docs portal. Static, zero-JS landing, terminal-green brand, mono-only typography. Deploys to any static host.
 

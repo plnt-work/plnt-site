@@ -10,7 +10,7 @@ Paste this into a fresh Claude Code session running in `/Users/dev16/Documents/d
 
 **What the site is becoming:** the marketing + docs surface for **plnt at plnt.work** — a **playground platform for deploying multiple ML inference models on Kubernetes** (Helm charts + Temporal workflow layer + `InferenceModel` CRD + operator). Sister platform repo at `/Users/dev16/Documents/den-agent/plnt`. Sister demo product at `/Users/dev16/Documents/den-agent/plnt-cloud`.
 
-**Why the rebrand:** the site is being aimed as the presentable artifact for a **NVIDIA — Senior Software Engineer, NIM Factory Container and Cloud Infrastructure** interview (Santa Clara, JR2003580). Interviewer visits plnt.work → sees a platform pitch that maps 1:1 to the job description (container strategy for inference microservices, Python tooling for build orchestration, Helm/Operator automation, K8s GPU workloads, multi-tenant multi-cluster delivery).
+**Why the rebrand:** the site is being aimed as the presentable artifact for a **infrastructure engineering demo. Interviewer visits plnt.work → sees a platform pitch that maps 1:1 to the job description (container strategy for inference microservices, Python tooling for build orchestration, Helm/Operator automation, K8s GPU workloads, multi-tenant multi-cluster delivery).
 
 ## What to preserve
 
@@ -43,8 +43,8 @@ Paste this into a fresh Claude Code session running in `/Users/dev16/Documents/d
 - Mark phases honestly: "shipped", "in progress", "planned".
 
 **Resources (`src/pages/resources.astro`):**
-- Repo links: platform at `github.com/devdattatalele/plnt` (rename if needed), demo product at `github.com/devdattatalele/google-business-microagent` (this is currently plnt-cloud).
-- Reading list: vLLM paper, KServe docs, Temporal + K8s patterns, Google SRE cascading-failures chapter, MLflow model registry, NVIDIA container toolkit.
+- Repo links: platform at `github.com/plnt-work/plnt` (rename if needed), demo product at `github.com/plnt-work/google-business-microagent` (this is currently plnt-cloud).
+- Reading list: vLLM paper, KServe docs, Temporal + K8s patterns, Google SRE cascading-failures chapter, MLflow model registry, container runtime toolkit.
 
 **Docs portal (`src/content/docs/docs/`):**
 - Kill the personal-runtime docs. New Starlight docs sections:
