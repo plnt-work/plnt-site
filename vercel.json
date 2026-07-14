@@ -7,6 +7,11 @@
       "source": "/",
       "has": [{ "type": "host", "value": "play.plnt.work" }],
       "destination": "/playground"
+    },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "play.plnt.work" }],
+      "destination": "/playground"
     }
   ]
 }
