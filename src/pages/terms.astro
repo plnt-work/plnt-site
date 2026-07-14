@@ -1,19 +1,19 @@
 ---
 import Layout from '../layouts/Layout.astro';
-const title = 'Terms of Use — Plnt';
-const description = 'Terms of use for the Plnt project and website.';
+const title = 'Terms of Use — plnt';
+const description = 'Terms of use for the plnt project, website, and playground.';
 ---
 
 <Layout title={title} description={description} path="/terms">
-  <section class="section">
+  <section class="section" style="padding-top: clamp(4rem, 7vw, 6rem);">
     <div class="container prose" style="max-width: 760px;">
       <span class="eyebrow">legal</span>
       <h1>Terms of Use</h1>
-      <p class="muted">Last updated: June 15, 2026</p>
+      <p class="dim">Last updated: July 15, 2026</p>
 
       <h2>1. The software</h2>
       <p>
-        Plnt is open-source software released under the <strong>Apache License 2.0</strong>.
+        plnt is open-source software released under the <strong>Apache License 2.0</strong>.
         Your use of the software is governed by that license. Nothing on this website
         modifies, supersedes, or grants any rights beyond the license text itself.
       </p>
@@ -23,54 +23,81 @@ const description = 'Terms of use for the Plnt project and website.';
 
       <h2>2. This website</h2>
       <p>
-        This site (<code>plnt.dev</code>) is informational. It describes the Plnt project and
-        links to source code, documentation, and resources. No accounts, no purchases,
-        no user-submitted content.
+        This site (<code>plnt.work</code>) is informational. It describes the plnt project
+        (an orchestration runtime for agentic workflows), links to source code and documentation,
+        and hosts an interactive playground. No accounts, no purchases, no user submissions retained.
       </p>
 
-      <h2>3. No warranty</h2>
+      <h2>3. The playground</h2>
       <p>
-        The software is provided <strong>"as is"</strong>, without warranty of any kind, express
-        or implied. Plnt runs agents on your machine that read your files and may execute
-        commands you authorize. You are responsible for understanding what you run.
+        The playground at <a href="https://play.plnt.work"><code>play.plnt.work</code></a>
+        is a demonstration surface. Invocation payloads you send are forwarded to whichever
+        model backend is configured for that workflow, and the response is streamed back to
+        your browser. Neither the payload nor the response is stored on our infrastructure
+        beyond the lifetime of the request.
+      </p>
+      <p>
+        The playground is provided <strong>for evaluation and demonstration only</strong>.
+        Do not send confidential data, personal data, credentials, or anything covered by
+        a non-disclosure obligation. Rate limits and abuse controls apply; misuse (bulk
+        automation, credential stuffing, benchmarking, model extraction) may be blocked
+        without notice.
+      </p>
+
+      <h2>4. No warranty</h2>
+      <p>
+        The software and the playground are provided <strong>"as is"</strong>, without
+        warranty of any kind, express or implied. plnt deploys and orchestrates workflows
+        on your own Kubernetes cluster; you are responsible for understanding the
+        workflows you run, the models they invoke, and the effects of any tools those
+        workflows call.
       </p>
       <ul>
-        <li>Plnt does not ship telemetry. No data leaves your machine unless you point it at a cloud LLM backend.</li>
-        <li>The sandbox is a ladder — the default <code>process</code> rung is not a security boundary against malicious code you choose to execute.</li>
-        <li>Sub-agents may issue shell commands. Review the JSONL audit log in <code>$PLNT_HOME/runs/</code> if in doubt.</li>
+        <li>The playground uses stub replies when no live backend is configured — mock data, no real inference.</li>
+        <li>When a live backend is configured, requests go to that backend directly. Their terms apply.</li>
+        <li>plnt itself does not proxy through third-party infrastructure we control.</li>
       </ul>
 
-      <h2>4. Third-party services</h2>
+      <h2>5. Third-party services</h2>
       <p>
-        Plnt can route inference to third-party providers (OpenAI, Groq, Together, OpenRouter,
-        Anthropic, etc.) if you configure them. Your use of those providers is governed by
-        <em>their</em> terms and privacy policies, not ours. Plnt itself does not relay
-        anything through our infrastructure.
+        plnt can orchestrate workflows that call third-party providers (OpenAI, Anthropic,
+        Groq, Together, self-hosted vLLM/TGI/SGLang, or any OpenAI-compatible upstream)
+        based on how you configure them. Your use of those providers is governed by
+        <em>their</em> terms and privacy policies.
       </p>
 
-      <h2>5. Contributions</h2>
+      <h2>6. Contributions</h2>
       <p>
-        Contributions to the repository are accepted under the Apache-2.0 license. By
-        submitting a pull request you certify the contribution is yours to license under
-        Apache-2.0 (a Developer Certificate of Origin equivalent).
+        Contributions to any repository under <a href="https://github.com/plnt-work" target="_blank" rel="noopener"><code>github.com/plnt-work</code></a>
+        are accepted under Apache-2.0. By submitting a pull request you certify the
+        contribution is yours to license under Apache-2.0 (a Developer Certificate of
+        Origin equivalent).
       </p>
 
-      <h2>6. Trademark</h2>
+      <h2>7. Trademark</h2>
       <p>
-        "Plnt" and the wordmark may be used to refer to the project. You may not use them
-        to imply endorsement of a different product or to brand a fork in a way that
-        confuses users.
+        "plnt" and the wordmark may be used to refer to the project. You may not use them
+        to imply endorsement of a different product, misrepresent affiliation, or brand a
+        fork in a way that confuses users.
       </p>
 
-      <h2>7. Changes</h2>
+      <h2>8. Governing law</h2>
       <p>
-        These terms may be updated. The latest version is always at <a href="/terms">plnt.dev/terms</a>. Material changes will be noted at the top of this page.
+        These terms are governed by the laws applicable to open-source software published
+        on GitHub. Disputes about the software itself are governed by the Apache-2.0 license.
+      </p>
+
+      <h2>9. Changes</h2>
+      <p>
+        These terms may be updated. The latest version is always at <a href="/terms">plnt.work/terms</a>.
+        Material changes will be noted at the top of this page.
       </p>
 
       <hr/>
       <p class="dim">
         Questions? Open an issue on <a href="https://github.com/plnt-work/plnt/issues" target="_blank" rel="noopener">GitHub</a>.
       </p>
+      <p class="dim">© 2026 plnt.work. Apache-2.0 licensed. Trademark and site content, all rights reserved where applicable.</p>
     </div>
   </section>
 </Layout>

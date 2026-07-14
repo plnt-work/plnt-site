@@ -21,6 +21,19 @@ const jsonLd = {
   license: 'https://www.apache.org/licenses/LICENSE-2.0',
   url: 'https://plnt.work',
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  copyrightYear: 2026,
+  copyrightHolder: {
+    '@type': 'Organization',
+    name: 'plnt.work',
+    url: 'https://plnt.work',
+    sameAs: ['https://github.com/plnt-work'],
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: 'plnt.work',
+    url: 'https://plnt.work',
+    logo: 'https://plnt.work/favicon.svg',
+  },
 };
 ---
 
@@ -93,7 +106,10 @@ const jsonLd = {
 
     <footer class="site-footer">
       <div class="container inner">
-        <span>plnt — orchestration runtime for agentic workflows. Apache-2.0.</span>
+        <div class="footer-copy">
+          <span>© 2026 <a href="https://github.com/plnt-work" target="_blank" rel="noopener">plnt.work</a>. Apache-2.0 licensed.</span>
+          <span class="footer-sub">The runtime for agentic workflows on Kubernetes.</span>
+        </div>
         <div class="links">
           <a href="/playground">Playground</a>
           <a href="/architecture">Architecture</a>

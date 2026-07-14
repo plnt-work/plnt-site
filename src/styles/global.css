@@ -585,7 +585,7 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
   display: flex;
   flex-wrap: wrap;
   gap: 1.5rem;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
 }
 .site-footer .inner a {
@@ -597,6 +597,10 @@ pre code { background: transparent; padding: 0; border: 0; color: inherit; font-
 }
 .site-footer .inner a:hover { color: var(--acc); }
 .site-footer .links { display: flex; flex-wrap: wrap; gap: 1.25rem; }
+.site-footer .footer-copy { display: flex; flex-direction: column; gap: 0.25rem; }
+.site-footer .footer-copy a { color: var(--ink-3); text-decoration: underline; text-decoration-color: var(--ink-6); }
+.site-footer .footer-copy a:hover { color: var(--acc); text-decoration-color: var(--acc); }
+.site-footer .footer-sub { color: var(--ink-6); font-size: 0.78rem; }
 
 /* chips */
 .chip {

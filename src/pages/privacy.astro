@@ -1,74 +1,107 @@
 ---
 import Layout from '../layouts/Layout.astro';
-const title = 'Privacy — Plnt';
-const description = 'Privacy policy for the Plnt project and website. Local-first means no data leaves your machine by default.';
+const title = 'Privacy — plnt';
+const description = 'Privacy policy for plnt.work. No accounts, no analytics scripts, no third-party tracking on the marketing site.';
 ---
 
 <Layout title={title} description={description} path="/privacy">
-  <section class="section">
+  <section class="section" style="padding-top: clamp(4rem, 7vw, 6rem);">
     <div class="container prose" style="max-width: 760px;">
       <span class="eyebrow">privacy</span>
       <h1>Privacy</h1>
-      <p class="muted">Last updated: June 15, 2026</p>
+      <p class="dim">Last updated: July 15, 2026</p>
 
       <h2>The short version</h2>
       <p class="lead">
-        Plnt is local-first. The software runs on your machine, reads files you point it at,
-        and writes its state to <code>$PLNT_HOME</code>. <strong>No telemetry. No analytics.
-        No account.</strong> Nothing is sent to us, because there is no "us" infrastructure
-        to send it to.
+        <strong>No accounts. No analytics scripts. No third-party trackers.</strong>
+        <code>plnt.work</code> is a static marketing site + a stateless playground API.
+        The plnt software itself runs on <em>your</em> Kubernetes cluster — nothing is
+        centralized on our infrastructure.
       </p>
 
       <h2>1. The software</h2>
       <p>
-        Plnt does not phone home. It does not collect crash reports, usage stats, or any
-        identifier. There is no built-in network call to a Plnt-controlled endpoint.
+        plnt is a runtime you install on a Kubernetes cluster you control. It does not
+        phone home. It does not collect crash reports, usage statistics, or any identifier.
+        There is no built-in network call to any plnt.work-controlled endpoint from the
+        operator, the saga, or the runner pods.
       </p>
 
-      <h3>What happens to your data locally</h3>
+      <h2>2. This website</h2>
+      <p>
+        <code>plnt.work</code> is a static Astro build hosted on Vercel. No cookies are
+        set by the site itself. No analytics scripts, tag managers, session replay, or
+        fingerprinting are loaded. Your browser fetches HTML, CSS, and a small amount of
+        JavaScript — nothing else.
+      </p>
+      <p>
+        Standard edge access logs (IP, user-agent, requested path, timestamp) may exist
+        at the hosting provider (Vercel) and the DNS provider (Cloudflare) for short
+        retention periods as part of normal operations and abuse protection. These are
+        not used for tracking or shared with third parties, and are governed by
+        <a href="https://vercel.com/legal/privacy-policy" target="_blank" rel="noopener">Vercel's privacy policy</a>
+        and <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener">Cloudflare's privacy policy</a>.
+      </p>
+
+      <h2>3. The playground</h2>
+      <p>
+        <a href="https://play.plnt.work"><code>play.plnt.work</code></a> is an interactive
+        surface backed by <code>playground.plnt.work</code>. When you invoke a workflow:
+      </p>
       <ul>
-        <li><strong>Files you let agents read</strong> are read by tools running on your machine.</li>
-        <li><strong>The blackboard</strong> (<code>$PLNT_HOME/runs/&lt;id&gt;/events.jsonl</code>) records every tool call, model call, and result. You own these files. Delete them at any time.</li>
-        <li><strong>Skill files</strong> live in <code>$PLNT_HOME/skills/</code>. Skills you install from external catalogs are versioned by git so you can audit and revert.</li>
+        <li>Your payload is sent to the workflow runner selected in the sidebar.</li>
+        <li>If a live model backend is configured for that runner, the request is
+          forwarded to that backend and the response is streamed back to your browser.</li>
+        <li>If no live backend is configured, the response is a canned "stub" reply —
+          no real inference, no external call.</li>
       </ul>
-
-      <h2>2. When you use a cloud LLM backend</h2>
       <p>
-        If you configure <code>PLNT_DEEP_URL</code> or a cloud API key, Plnt will send the
-        prompts and context required for inference to that provider. The provider's privacy
-        policy then applies to that data. Plnt does not proxy, intercept, or store these calls
-        on any Plnt-controlled server — the request goes from your machine to the provider
-        directly.
+        Payloads and responses are <strong>not retained on plnt.work-controlled
+        infrastructure</strong>. They exist only for the duration of the request, plus
+        short-term edge logs described above.
       </p>
       <p>
-        Every backend selection is logged in <code>events.jsonl</code> with a <code>"backend"</code>
-        field, so you can audit which calls went where with one <code>grep</code>.
+        <strong>Do not send confidential, personal, or sensitive data</strong> to the
+        playground. It is a public demonstration surface.
       </p>
 
-      <h2>3. This website</h2>
+      <h2>4. Third-party providers</h2>
       <p>
-        <code>plnt.dev</code> is a static site. No cookies, no analytics scripts, no fingerprinting.
-        Your browser fetches HTML, CSS, and a tiny amount of JS — nothing else.
-      </p>
-      <p>
-        Standard server access logs (IP, user-agent, requested path, timestamp) may exist on
-        the hosting provider's edge for short periods as part of normal operations and DDoS
-        protection. These are not used for tracking or shared with third parties.
+        When a workflow invokes a hosted model provider (OpenAI, Anthropic, Groq,
+        Together, or any OpenAI-compatible upstream), the prompt and context required
+        for inference are sent to that provider directly. Their privacy policy applies
+        to that data. plnt.work does not intercept or store these calls.
       </p>
 
-      <h2>4. Outbound links</h2>
+      <h2>5. Cookies</h2>
       <p>
-        The site links to GitHub and the project repository. Once you click such a link, the
-        target site's privacy policy applies.
+        <code>plnt.work</code>, <code>play.plnt.work</code>, and
+        <code>playground.plnt.work</code> do not set analytics or advertising cookies.
+        Only strictly-necessary functional cookies (if any) are used, and only by the
+        hosting provider for routing/security.
       </p>
 
-      <h2>5. Children</h2>
+      <h2>6. Outbound links</h2>
       <p>
-        Plnt is a developer tool. It is not directed at children under 13 and we do not
-        knowingly collect information from them.
+        The site links to GitHub, provider documentation, and prior-art references.
+        Once you click such a link, the target site's privacy policy applies.
       </p>
 
-      <h2>6. Changes</h2>
+      <h2>7. Children</h2>
+      <p>
+        plnt is a developer tool. It is not directed at children under 13, and we do
+        not knowingly collect information from them.
+      </p>
+
+      <h2>8. Your rights</h2>
+      <p>
+        Because we do not maintain user accounts or profiles, we have no personal data
+        to retrieve, correct, or delete on your behalf. If you believe residual edge-log
+        data associated with your IP should be removed, contact Vercel or Cloudflare
+        directly via the policies linked above.
+      </p>
+
+      <h2>9. Changes</h2>
       <p>
         We will note material changes to this policy at the top of the page.
       </p>
@@ -77,6 +110,7 @@ const description = 'Privacy policy for the Plnt project and website. Local-firs
       <p class="dim">
         Questions? Open an issue on <a href="https://github.com/plnt-work/plnt/issues" target="_blank" rel="noopener">GitHub</a>.
       </p>
+      <p class="dim">© 2026 plnt.work. Apache-2.0 licensed.</p>
     </div>
   </section>
 </Layout>

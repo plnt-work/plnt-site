@@ -1,0 +1,35 @@
+plnt-site
+Copyright 2026 plnt.work
+
+This product includes software developed at plnt.work
+(https://plnt.work).
+
+Licensed under the Apache License, Version 2.0.
+
+--------------------------------------------------------------------
+Third-party components
+--------------------------------------------------------------------
+
+This site is built with the following open-source software. Each
+retains its own license and copyright.
+
+* Astro (MIT)                — https://astro.build
+* Starlight (MIT)            — https://starlight.astro.build
+* Preact (MIT)               — https://preactjs.com
+* Inter font (SIL OFL 1.1)   — https://rsms.me/inter/
+* JetBrains Mono (SIL OFL 1.1) — https://www.jetbrains.com/lp/mono/
+
+Fonts are self-hosted via @fontsource. No external font CDNs are
+loaded at page render time.
+
+--------------------------------------------------------------------
+Trademarks
+--------------------------------------------------------------------
+
+"plnt" and the plnt wordmark are trademarks of plnt.work. Use of
+the marks to describe the project is permitted; use to imply
+endorsement of a different product is not.
+
+All other trademarks referenced (Kubernetes, Helm, Temporal,
+Vercel, Fly.io, Cloudflare, etc.) are the property of their
+respective owners.
